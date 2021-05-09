@@ -13,5 +13,5 @@ MonoBehaviour:
   m_Name: Font Links
   m_EditorClassIdentifier: 
   _fonts:
-  - Name: Roboto-LightItalic
-    Font: {fileID: 0}
+  - Name: LieberationSans
+    Font: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}

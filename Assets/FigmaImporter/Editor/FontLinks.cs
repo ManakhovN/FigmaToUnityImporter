@@ -18,7 +18,7 @@ namespace FigmaImporter.Editor
 
         public void AddName(string font)
         {
-            if (Get(font) == null)
+            if (_fonts?.FirstOrDefault(x => x.Name == name) == null)
                 _fonts.Add(new FontStringPair(font, null));
         }
     }
