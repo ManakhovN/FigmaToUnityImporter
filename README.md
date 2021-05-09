@@ -1,9 +1,9 @@
 # FigmaToUnityImporter
 
 ## Overall information
-
 A project that imports nodes from Figma into unity.
-Before using I want u to notice, that the project is raw, and I can't promise you that I will develop it intensively. 
+Before using I want u to notice, that the project is raw, and I can't promise you that I will develop it intensively.
+Some features are not ready yet. Some features are impossible to quickly recreate in Unity.
 ## Contributing
 I can't promise you, that I will develop this project too much. So you are welcome to contribute. And you are free to use this project for any purpose.
 ## Usage
