@@ -1,11 +1,11 @@
-# FigmaToUnityImporter
+# Figma To Unity Importer
 
 ## Overall information
-A project that imports nodes from Figma into unity.
+Tool that imports nodes from Figma into the Unity.
 Before using I want u to notice, that the project is raw, and I can't promise you that I will develop it intensively.
 Some features are not ready yet. Some features are impossible to quickly recreate in Unity.
 ## Contributing
-I can't promise you, that I will develop this project too much. So you are welcome to contribute. And you are free to use this project for any purpose.
+You are welcome to contribute. And you are free to use this project for any purpose.
 ## Usage
 Firstly, you need to put FigmaImporter into your project.
 Then new menu option will appear.
@@ -32,7 +32,7 @@ Now you can copy the node link, and put it in the URL field in unity.
 ![Node link](./ReadmeImages/step5.png)
 
 Now OpenScene with Canvas.
-And press the "GetFile" button (I will rename it, I promise, but later). It will take some time to generate the node. And that's all.
+And press the "GetFile" button (I will rename it, I promise, but later). It takes some time to generate the node. And that's all.
 
 ![Get File](./ReadmeImages/step6.png)
 
