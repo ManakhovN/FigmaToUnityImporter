@@ -1,169 +1,103 @@
 ﻿using System.Linq;
+using Nox7atra.UIFigmaGradients;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace FigmaImporter.Editor
 {
     [CreateAssetMenu(menuName = "FigmaImporter/GradientsGenerator")]
     public class GradientsGenerator : ScriptableObject //I wanted to make shaders for each gradient, that's why it is SO.
     {
-        public Texture2D GetTexture(Fill fill, Vector2 nodeSize, int size = 128)
+        public void AddGradient(Fill fill, Image image)
         {
-            Texture2D result = new Texture2D(size, (int) (size * nodeSize.y / nodeSize.x), TextureFormat.RGBA32, false);
+            var go = image.gameObject;
+            DestroyImmediate(image);
             switch (fill.type)
             {
                 case "GRADIENT_RADIAL":
-                    GenerateRadialGradient(result, fill);
+                    GenerateRadialGradient(go, fill);
                     break;
                 case "GRADIENT_LINEAR":
-                    GenerateLinearGradient(result, fill);
+                    GenerateLinearGradient(go, fill);
                     break;
                 case "GRADIENT_DIAMOND":
-                    GenerateDiamondGradient(result, fill);
+                    GenerateDiamondGradient(go, fill);
                     break;
                 case "GRADIENT_ANGULAR":
-                    GenerateAngularGradient(result, fill);
+                    GenerateAngularGradient(go, fill);
                     break;
             }
-
-            result.Apply();
-            return result;
         }
 
-        private void GenerateAngularGradient(Texture2D result, Fill fill)
+        private void GenerateAngularGradient(GameObject go, Fill fill)
         {
+            var angularGradient = go.AddComponent<UIFigmaGradientAngularDrawer>();
+            Gradient gradient = GenerateGradient(fill);
+            var p0 = fill.gradientHandlePositions[0].ToVector2();
+            var p1 = fill.gradientHandlePositions[1].ToVector2();
+            float angle = Vector2.SignedAngle(Vector2.right, p1);
+            angularGradient.SetParameters(gradient, angle, p0);
+        }
+
+        private Gradient GenerateGradient(Fill fill)
+        {
+            var gradientStopsLength = fill.gradientStops.Length;
+            GradientColorKey[] colorKeys = new GradientColorKey[gradientStopsLength];
+            GradientAlphaKey[] alphaKeys = new GradientAlphaKey[gradientStopsLength];
+            
+            for (int i = 0; i < gradientStopsLength; i++)
+            {
+                float time = fill.gradientStops[i].position;
+                var col = fill.gradientStops[i].color.ToColor();
+                var colorKey = new GradientColorKey();
+                colorKey.color = col;
+                colorKey.time = time;
+                var alphaKey = new GradientAlphaKey();
+                alphaKey.alpha = col.a;
+                alphaKey.time = time;
+                colorKeys[i] = colorKey;
+                alphaKeys[i] = alphaKey;
+            }
+            Gradient gradient = new Gradient();
+            gradient.SetKeys(colorKeys.ToArray(), alphaKeys.ToArray());
+            return gradient;
+        }
+
+        private void GenerateDiamondGradient(GameObject go, Fill fill)
+        {
+            var angularGradient = go.AddComponent<UIFigmaGradinetDiamondDrawer>();
+            Gradient gradient = GenerateGradient(fill);
+            var p0 = fill.gradientHandlePositions[0].ToVector2();
             var p1 = fill.gradientHandlePositions[1].ToVector2();
             var p2 = fill.gradientHandlePositions[2].ToVector2();
-            var pivot = fill.gradientHandlePositions[0].ToVector2();
-            for (int x = 0; x < result.width; x++)
-            {
-                for (int y = 0; y < result.height; y++)
-                {
-                    float normalizedX = x / (float) result.width;
-                    float normalizedY = y / (float) result.height;
-                    var currentPoint = new Vector2(normalizedX, normalizedY);
-                    float progress1 = (CalcProgress(pivot,
-                        p1, currentPoint, true, true));
-                    float progress2 = (CalcProgress(pivot,
-                        p2, currentPoint, true, true));
-                    float progress = Vector2.SignedAngle(Vector2.right, new Vector2(progress1, progress2));
-                    if (progress < 0f)
-                        progress = progress + 360;
-                    progress /= 360f;
-                    for (int i = 1; i < fill.gradientStops.Length; i++)
-                    {
-                        var prevGr = fill.gradientStops[i - 1];
-                        var gr = fill.gradientStops[i];
-                        if (prevGr.position <= progress && progress <= gr.position)
-                            result.SetPixel(x, result.height - y - 1,
-                                UnityEngine.Color.Lerp(prevGr.color.ToColor(), gr.color.ToColor(),
-                                    (progress - prevGr.position) / (gr.position - prevGr.position)));
-                    }
-                }
-            }
+            float angle = Vector2.SignedAngle(Vector2.right, p1 - p0);
+            float r1 = (p0 - p1).magnitude * 2;
+            float r2 = (p0 - p2).magnitude * 2;
+            angularGradient.SetParameters(gradient, angle, p0, r1, r2);
         }
 
-        private void GenerateDiamondGradient(Texture2D result, Fill fill)
+        private void GenerateLinearGradient(GameObject go, Fill fill)
         {
+            var angularGradient = go.AddComponent<UIFigmaGradientLinearDrawer>();
+            Gradient gradient = GenerateGradient(fill);
+            var p0 = fill.gradientHandlePositions[0].ToVector2();
+            var p1 = fill.gradientHandlePositions[1].ToVector2();
+            float angle = Vector2.SignedAngle(Vector2.right, p0);
+            angularGradient.SetParameters(gradient, angle);
+        }
+
+        private void GenerateRadialGradient(GameObject go, Fill fill)
+        {
+            var angularGradient = go.AddComponent<UIFigmaGradinetDiamondDrawer>();
+            Gradient gradient = GenerateGradient(fill);
+            var p0 = fill.gradientHandlePositions[0].ToVector2();
             var p1 = fill.gradientHandlePositions[1].ToVector2();
             var p2 = fill.gradientHandlePositions[2].ToVector2();
-
-            var pivot = fill.gradientHandlePositions[0].ToVector2();
-            for (int x = 0; x < result.width; x++)
-            {
-                for (int y = 0; y < result.height; y++)
-                {
-                    float normalizedX = x / (float) result.width;
-                    float normalizedY = y / (float) result.height;
-                    float progress1 = (CalcProgress(pivot,
-                        p1, new Vector2(normalizedX, normalizedY), true));
-                    float progress2 = (CalcProgress(pivot,
-                        p2, new Vector2(normalizedX, normalizedY), true));
-                    float progress = Mathf.Clamp01(progress1 + progress2);
-                    for (int i = 1; i < fill.gradientStops.Length; i++)
-                    {
-                        var prevGr = fill.gradientStops[i - 1];
-                        var gr = fill.gradientStops[i];
-                        if (prevGr.position <= progress && progress <= gr.position)
-                            result.SetPixel(x, result.height - y - 1,
-                                UnityEngine.Color.Lerp(prevGr.color.ToColor(), gr.color.ToColor(),
-                                    (progress - prevGr.position) / (gr.position - prevGr.position)));
-                    }
-                }
-            }
+            float angle = Vector2.SignedAngle(Vector2.right, p1 - p0);
+            float r1 = (p0 - p1).magnitude * 2;
+            float r2 = (p0 - p2).magnitude * 2;
+            angularGradient.SetParameters(gradient, angle, p0, r1, r2);
         }
-
-        private void GenerateLinearGradient(Texture2D result, Fill fill)
-        {
-            for (int x = 0; x < result.width; x++)
-            {
-                for (int y = 0; y < result.height; y++)
-                {
-                    float normalizedX = x / (float) result.width;
-                    float normalizedY = y / (float) result.height;
-                    float progress = (CalcProgress(fill.gradientHandlePositions[0].ToVector2(),
-                        fill.gradientHandlePositions[1].ToVector2(), new Vector2(normalizedX, normalizedY)));
-                    progress = Mathf.Clamp01(progress);
-                    for (int i = 1; i < fill.gradientStops.Length; i++)
-                    {
-                        var prevGr = fill.gradientStops[i - 1];
-                        var gr = fill.gradientStops[i];
-                        if (prevGr.position <= progress && progress <= gr.position)
-                            result.SetPixel(x, result.height - y - 1,
-                                UnityEngine.Color.Lerp(prevGr.color.ToColor(), gr.color.ToColor(),
-                                    (progress - prevGr.position) / (gr.position - prevGr.position)));
-                    }
-                }
-            }
-        }
-
-        private void GenerateRadialGradient(Texture2D result, Fill fill)
-        {
-            var p1 = fill.gradientHandlePositions[1].ToVector2();
-            var p2 = fill.gradientHandlePositions[2].ToVector2();
-            //bug: There is a bug in figma. If u change the size of the node, its vectors may not be perpendicular to each other.
-            var pivot = fill.gradientHandlePositions[0].ToVector2();
-            for (int x = 0; x < result.width; x++)
-            {
-                for (int y = 0; y < result.height; y++)
-                {
-                    float normalizedX = x / (float) result.width;
-                    float normalizedY = y / (float) result.height;
-                    float progress1 = (CalcProgress(pivot,
-                        p1, new Vector2(normalizedX, normalizedY), true));
-                    float progress2 = (CalcProgress(pivot,
-                        p2, new Vector2(normalizedX, normalizedY), true));
-                    float progress = Mathf.Clamp01(Mathf.Sqrt(progress1 * progress1 + progress2 * progress2));
-                    for (int i = 1; i < fill.gradientStops.Length; i++)
-                    {
-                        var prevGr = fill.gradientStops[i - 1];
-                        var gr = fill.gradientStops[i];
-                        if (prevGr.position <= progress && progress <= gr.position)
-                            result.SetPixel(x, result.height - y - 1,
-                                UnityEngine.Color.Lerp(prevGr.color.ToColor(), gr.color.ToColor(),
-                                    (progress - prevGr.position) / (gr.position - prevGr.position)));
-                    }
-                }
-            }
-        }
-
-        private float CalcProgress(Vector2 pivot, Vector2 p1, Vector2 p2, bool twoWays = false, bool sign = false)
-        {
-            var v2 = p2 - pivot;
-            var v1 = p1 - pivot;
-//            var angle = Vector2.Angle(v2, v1);
-//            if (v2.magnitude * Mathf.Cos(angle) >= 0.5f)
-//            {
-//                Debug.Log("sadasdsad");
-//            }
-
-            //return (v2.magnitude * Mathf.Cos(angle));
-
-            var dot = Vector2.Dot(v2, v1);
-            if (!twoWays && dot < 0f)
-                return 0f;
-            if (sign)
-                return Mathf.Sign(dot) * ((dot / v1.sqrMagnitude) * v1).magnitude / v1.magnitude;
-            return ((dot / v1.sqrMagnitude) * v1).magnitude / v1.magnitude;
-        }
+        
     }
 }

@@ -172,11 +172,7 @@ namespace FigmaImporter.Editor
                             image.color = fill.color.ToColor();
                         break;
                     default:
-                        var tex = gg.GetTexture(fill, node.absoluteBoundingBox.GetSize(), 256);
-                        string fileName = $"{node.name}_{index.ToString()}.png";
-                        SaveTexture(tex, $"/{_importer.GetRendersFolderPath()}/{fileName}");
-                        var sprite = ChangeTextureToSprite($"Assets/{_importer.GetRendersFolderPath()}/{fileName}");
-                        image.sprite = sprite;
+                        gg.AddGradient(fill, image);
                         break;
                 }
 
