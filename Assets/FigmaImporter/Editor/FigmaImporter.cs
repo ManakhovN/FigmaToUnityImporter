@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.Networking;
@@ -110,17 +112,24 @@ namespace FigmaImporter.Editor
             return "";
         }
 
-        private string GetFile(string fileUrl)
+        private async void GetFile(string fileUrl)
         {
             WWWForm form = new WWWForm();
             string request = fileUrl;
+            FigmaNodesProgressInfo.CurrentNode = FigmaNodesProgressInfo.NodesCount = 0;
+            FigmaNodesProgressInfo.CurrentTitle = "Loading nodes info";
             using (UnityWebRequest www = UnityWebRequest.Get(request))
             {
                 www.SetRequestHeader("Authorization", $"Bearer {_settings.Token}");
                 www.SendWebRequest();
                 while (!www.isDone)
                 {
+                    FigmaNodesProgressInfo.CurrentInfo = "Loading nodes info";
+                    FigmaNodesProgressInfo.ShowProgress(www.downloadProgress);
+                    await Task.Delay(100);
                 }
+                
+                FigmaNodesProgressInfo.HideProgress();
 
                 if (www.isNetworkError)
                 {
@@ -131,18 +140,31 @@ namespace FigmaImporter.Editor
                     var result = www.downloadHandler.text;
                     FigmaParser parser = new FigmaParser();
                     var nodes = parser.ParseResult(result);
+                    FigmaNodesProgressInfo.NodesCount = GetNodesCount(nodes);
                     FigmaNodeGenerator generator = new FigmaNodeGenerator(this);
                     foreach (var node in nodes)
-                        generator.GenerateNode(node);
+                        await generator.GenerateNode(node);
                 }
+                FigmaNodesProgressInfo.HideProgress();
             }
+        }
 
-            return "";
+        private int GetNodesCount(IEnumerable<Node> nodes)
+        {
+            int count = 0;
+            if (nodes == null)
+                return 0;
+            foreach (var node in nodes)
+            {
+                count++;
+                count += GetNodesCount(node.children);
+            }
+            return count;
         }
 
         private const string ImagesUrl = "https://api.figma.com/v1/images/{0}?ids={1}&svg_include_id=true&format=png";
 
-        public Texture2D GetImage(string nodeId)
+        public async Task<Texture2D> GetImage(string nodeId)
         {
             WWWForm form = new WWWForm();
             string request = string.Format(ImagesUrl, _fileName, nodeId);
@@ -152,8 +174,13 @@ namespace FigmaImporter.Editor
                 www.SendWebRequest();
                 while (!www.isDone)
                 {
+                    FigmaNodesProgressInfo.CurrentInfo = "Getting node image info";
+                    FigmaNodesProgressInfo.ShowProgress(www.downloadProgress);
+                    await Task.Delay(100);
                 }
-
+                
+                FigmaNodesProgressInfo.HideProgress();
+                
                 if (www.isNetworkError)
                 {
                     Debug.Log(www.error);
@@ -162,11 +189,12 @@ namespace FigmaImporter.Editor
                 {
                     var result = www.downloadHandler.text;
                     var substrs = result.Split('"');
+                    FigmaNodesProgressInfo.CurrentInfo = "Loading node texture";
                     foreach (var s in substrs)
                     {
                         if (s.Contains("http"))
                         {
-                            return LoadTextureByUrl(s);
+                            return await LoadTextureByUrl(s);
                         }
                     }
                 }
@@ -180,19 +208,22 @@ namespace FigmaImporter.Editor
             return _settings.RendersPath;
         }
 
-        private Texture2D LoadTextureByUrl(string url)
+        private async Task<Texture2D> LoadTextureByUrl(string url)
         {
             using (UnityWebRequest request = UnityWebRequestTexture.GetTexture(url))
             {
                 request.SendWebRequest();
                 while (request.downloadProgress<1f)
                 {
+                    FigmaNodesProgressInfo.ShowProgress(request.downloadProgress);
+                    await Task.Delay(100);
                 }
                 if (request.isNetworkError || request.isHttpError)
                     return null;
                 var data = request.downloadHandler.data;
                 Texture2D t = new Texture2D(0,0);
                 t.LoadImage(data);
+                FigmaNodesProgressInfo.HideProgress();
                 return t;
             }
         }
