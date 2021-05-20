@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Threading.Tasks;
 using TMPro;
 using UnityEditor;
 using UnityEngine;
@@ -18,8 +19,12 @@ namespace FigmaImporter.Editor
             _importer = importer;
         }
 
-        public void GenerateNode(Node node, GameObject parent = null)
+        public async Task GenerateNode(Node node, GameObject parent = null)
         {
+            FigmaNodesProgressInfo.CurrentNode ++;
+            FigmaNodesProgressInfo.CurrentInfo = "Node generation in progress";
+            FigmaNodesProgressInfo.ShowProgress(0f);
+            
             var boundingBox = node.absoluteBoundingBox;
             bool isParentCanvas = false;
             if (parent == null)
@@ -28,7 +33,7 @@ namespace FigmaImporter.Editor
                 offset = boundingBox.GetPosition();
                 isParentCanvas = true;
             }
-
+            
             GameObject nodeGo = new GameObject();
             RectTransform parentT = parent.GetComponent<RectTransform>();
             if (isParentCanvas)
@@ -43,10 +48,7 @@ namespace FigmaImporter.Editor
             SetMask(node, nodeGo);
             if (node.type != "TEXT" && (node.children == null || node.children.Length == 0))
             {
-                //TODO Integrate properly
-                AddFills(node, nodeGo);
-                
-                // RenderNodeAndApply(node, nodeGo);
+                await RenderNodeAndApply(node, nodeGo);
             }
             else
             {
@@ -54,7 +56,7 @@ namespace FigmaImporter.Editor
                 AddFills(node, nodeGo);
                 if (node.children == null) return;
                 foreach (var child in node.children)
-                    GenerateNode(child, nodeGo);
+                    await GenerateNode(child, nodeGo);
             }
         }
 
@@ -112,14 +114,18 @@ namespace FigmaImporter.Editor
             }
         }
 
-        private void RenderNodeAndApply(Node node, GameObject nodeGo)
+        private async Task RenderNodeAndApply(Node node, GameObject nodeGo)
         {
-            var result = _importer.GetImage(node.id);
+            FigmaNodesProgressInfo.CurrentInfo = "Loading image";
+            FigmaNodesProgressInfo.ShowProgress(0f);
+            var result = await _importer.GetImage(node.id);
             var t = nodeGo.transform as RectTransform;
             string spriteName = $"{node.name}_{node.id.Replace(':', '_')}.png";
             
             Image image = null;
             Sprite sprite = null;
+            FigmaNodesProgressInfo.CurrentInfo = "Saving rendered node";
+            FigmaNodesProgressInfo.ShowProgress(0f);
             try
             {
                 SaveTexture(result, $"/{_importer.GetRendersFolderPath()}/{spriteName}");
