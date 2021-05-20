@@ -16,6 +16,10 @@ namespace Nox7atra.UIFigmaGradients
     
       [SerializeField] 
       protected float _Angle = 180;
+      [SerializeField]
+      protected float _Diameter = 1;
+      [SerializeField]
+      protected Vector2 _Center = Vector2.zero;
 
       private Texture2D _GradientTexture;
       protected virtual TextureWrapMode WrapMode => TextureWrapMode.Clamp;
@@ -78,7 +82,10 @@ namespace Nox7atra.UIFigmaGradients
          UIVertex vert = new UIVertex();
          for (int i = 0; i < vh.currentVertCount; i++) {
             vh.PopulateUIVertex(ref vert, i);
-            vert.uv1 = new Vector2(_Angle, _Angle);          
+            vert.uv1 = new Vector2(_Angle, _Diameter);   
+                     Debug.Log(_Center);
+
+            vert.normal = new Vector3(_Center.x, _Center.y, _Angle);          
             vh.SetUIVertex(vert, i);
          }
       }
@@ -117,6 +124,8 @@ namespace Nox7atra.UIFigmaGradients
       {
          _Gradient = (Gradient)parameters[0];
          _Angle = (float)parameters[1];
+         _Diameter = (float)parameters[2];
+         _Center = (Vector2)parameters[3];
          OnValidate();         
       }
    }

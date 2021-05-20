@@ -43,7 +43,10 @@ namespace FigmaImporter.Editor
             SetMask(node, nodeGo);
             if (node.type != "TEXT" && (node.children == null || node.children.Length == 0))
             {
-                RenderNodeAndApply(node, nodeGo);
+                //TODO Integrate properly
+                AddFills(node, nodeGo);
+                
+                // RenderNodeAndApply(node, nodeGo);
             }
             else
             {
@@ -161,7 +164,7 @@ namespace FigmaImporter.Editor
                     var go = InstantiateChild(nodeGo, fill.type);
                     image = go.AddComponent<Image>();
                 }
-
+                
                 switch (fill.type)
                 {
                     case "SOLID":
