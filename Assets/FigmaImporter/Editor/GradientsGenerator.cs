@@ -6,8 +6,7 @@ using UnityEngine.UI;
 namespace FigmaImporter.Editor
 {
     [CreateAssetMenu(menuName = "FigmaImporter/GradientsGenerator")]
-    public class
-        GradientsGenerator : ScriptableObject //I wanted to make shaders for each gradient, that's why it is SO.
+    public class GradientsGenerator : ScriptableObject //I wanted to make shaders for each gradient, that's why it is SO.
     {
         public void AddGradient(Fill fill, Image image)
         {
@@ -89,7 +88,6 @@ namespace FigmaImporter.Editor
             p0.y = 1 - p0.y;
             p1.y = 1 - p1.y;
             Vector2 center = (p0 + p1) / 2;
-            Debug.Log(center);
             angularGradient.SetParameters(gradient, angle, d, center);
         }
 

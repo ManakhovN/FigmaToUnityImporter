@@ -83,8 +83,6 @@ namespace Nox7atra.UIFigmaGradients
          for (int i = 0; i < vh.currentVertCount; i++) {
             vh.PopulateUIVertex(ref vert, i);
             vert.uv1 = new Vector2(_Angle, _Diameter);   
-                     Debug.Log(_Center);
-
             vert.normal = new Vector3(_Center.x, _Center.y, _Angle);          
             vh.SetUIVertex(vert, i);
          }
