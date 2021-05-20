@@ -35,7 +35,7 @@ namespace FigmaImporter.Editor
             Gradient gradient = GenerateGradient(fill);
             var p0 = fill.gradientHandlePositions[0].ToVector2();
             var p1 = fill.gradientHandlePositions[1].ToVector2();
-            float angle = Vector2.SignedAngle(Vector2.right, p1);
+            float angle = Vector2.SignedAngle(Vector2.down, p1 - p0);
             angularGradient.SetParameters(gradient, angle, p0);
         }
 
@@ -44,7 +44,7 @@ namespace FigmaImporter.Editor
             var gradientStopsLength = fill.gradientStops.Length;
             GradientColorKey[] colorKeys = new GradientColorKey[gradientStopsLength];
             GradientAlphaKey[] alphaKeys = new GradientAlphaKey[gradientStopsLength];
-            
+
             for (int i = 0; i < gradientStopsLength; i++)
             {
                 float time = fill.gradientStops[i].position;
@@ -58,6 +58,7 @@ namespace FigmaImporter.Editor
                 colorKeys[i] = colorKey;
                 alphaKeys[i] = alphaKey;
             }
+
             Gradient gradient = new Gradient();
             gradient.SetKeys(colorKeys.ToArray(), alphaKeys.ToArray());
             return gradient;
@@ -82,22 +83,25 @@ namespace FigmaImporter.Editor
             Gradient gradient = GenerateGradient(fill);
             var p0 = fill.gradientHandlePositions[0].ToVector2();
             var p1 = fill.gradientHandlePositions[1].ToVector2();
-            float angle = Vector2.SignedAngle(Vector2.right, p0);
-            angularGradient.SetParameters(gradient, angle);
+            float angle = Vector2.SignedAngle(Vector2.down, p1 - p0);
+            float d = (p0 - p1).magnitude;
+            p0.y = 1 - p0.y;
+            p1.y = 1 - p1.y;
+            Vector2 center = (p0 + p1) / 2;
+            angularGradient.SetParameters(gradient, angle, d, center);
         }
 
         private void GenerateRadialGradient(GameObject go, Fill fill)
         {
-            var angularGradient = go.AddComponent<UIFigmaGradinetDiamondDrawer>();
+            var angularGradient = go.AddComponent<UIFigmaGradientRadialDrawer>();
             Gradient gradient = GenerateGradient(fill);
             var p0 = fill.gradientHandlePositions[0].ToVector2();
             var p1 = fill.gradientHandlePositions[1].ToVector2();
             var p2 = fill.gradientHandlePositions[2].ToVector2();
             float angle = Vector2.SignedAngle(Vector2.right, p1 - p0);
-            float r1 = (p0 - p1).magnitude * 2;
-            float r2 = (p0 - p2).magnitude * 2;
+            float r1 = (p0 - p1).magnitude;
+            float r2 = (p0 - p2).magnitude;
             angularGradient.SetParameters(gradient, angle, p0, r1, r2);
         }
-        
     }
 }

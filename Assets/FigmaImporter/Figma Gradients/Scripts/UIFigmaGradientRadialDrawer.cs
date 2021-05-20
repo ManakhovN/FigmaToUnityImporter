@@ -8,7 +8,6 @@ namespace Nox7atra.UIFigmaGradients
 {
     public class UIFigmaGradientRadialDrawer : UIFigmaGradientLinearDrawer
     {
-        [SerializeField] protected Vector2 _Center;
         [Range(0.01f, 10)]
         [SerializeField] protected float _Radius1 = 1;
         [Range(0.01f, 10)]

@@ -52,6 +52,7 @@
                 float4 color : COLOR;
                 float2 uv : TEXCOORD0;
                 float2 uv2 : TEXCOORD1;
+                float3 params : NORMAL;
             };
 
             struct v2f
@@ -59,45 +60,47 @@
                 float2 uv : TEXCOORD0;
                 float4 color : COLOR;
                 float4 vertex : SV_POSITION;
-                float2 uv2 : TEXCOORD1;
             };
 
             sampler2D _MainTex;
             float4 _MainTex_ST;
             float _Angle;
-            fixed4 SampleSpriteTexture (float2 uv)
-			{
-				fixed4 color = tex2D (_MainTex, uv);
+            fixed4 SampleSpriteTexture(float2 uv)
+            {
+                fixed4 color = tex2D(_MainTex, uv);
 
-#if UNITY_TEXTURE_ALPHASPLIT_ALLOWED
+                #if UNITY_TEXTURE_ALPHASPLIT_ALLOWED
 				if (_AlphaSplitEnabled)
 					color.a = tex2D (_AlphaTex, uv).r;
-#endif //UNITY_TEXTURE_ALPHASPLIT_ALLOWED
+                #endif //UNITY_TEXTURE_ALPHASPLIT_ALLOWED
 
-				return color;
-			}
-            v2f vert (appdata v)
+                return color;
+            }
+
+            v2f vert(appdata v)
             {
                 const float PI = 3.14159;
                 v2f o;
                 o.vertex = UnityObjectToClipPos(v.vertex);
                 o.color = v.color;
                 o.uv = TRANSFORM_TEX(v.uv, _MainTex);
-                o.uv.xy -= 0.5;
-                float s = sin (2 * PI * (-v.uv2.x) /360);
-                float c = cos (2 * PI * (-v.uv2.x) /360);
-                float2x2 rotationMatrix = float2x2( c, -s, s, c);
-                rotationMatrix *=0.5;
-                rotationMatrix +=0.5;
-                rotationMatrix = rotationMatrix * 2-1;
-                o.uv.xy = mul (o.uv.xy, rotationMatrix );
-                o.uv.xy += 0.5;
+
+                o.uv.xy -= v.params.xy;
+                float s = sin(2 * PI * (-v.uv2.x) / 360);
+                float c = cos(2 * PI * (-v.uv2.x) / 360);
+                float2x2 rotationMatrix = float2x2(c, -s, s, c);
+                rotationMatrix *= 0.5;
+                rotationMatrix += 0.5;
+                rotationMatrix = rotationMatrix * 2 - 1;
+                o.uv.xy = mul(o.uv.xy, rotationMatrix);
+                o.uv.y /= v.uv2.y;
+                o.uv.xy += v.params.xy;
                 return o;
             }
 
-            fixed4 frag (v2f i) : SV_Target
+            fixed4 frag(v2f i) : SV_Target
             {
-                fixed4 col = SampleSpriteTexture ( i.uv) * i.color;
+                fixed4 col = SampleSpriteTexture(i.uv) * i.color;
                 return col;
             }
             ENDCG

@@ -7,7 +7,6 @@ namespace Nox7atra.UIFigmaGradients
 {
     public class UIFigmaGradientAngularDrawer : UIFigmaGradientLinearDrawer
     {
-        [SerializeField] protected Vector2 _Center;
         protected override Material GradientMaterial => new Material(Shader.Find("UI/AngularGradientShader"));
         protected override TextureWrapMode WrapMode => TextureWrapMode.Repeat;
 
