@@ -5,6 +5,7 @@ using UnityEditor;
 using UnityEngine;
 using UnityEngine.Assertions;
 using UnityEngine.UI;
+using Object = UnityEngine.Object;
 
 namespace FigmaImporter.Editor
 {
@@ -340,10 +341,8 @@ namespace FigmaImporter.Editor
 
         public GameObject FindCanvas()
         {
-            var obj = GameObject.FindObjectOfType<Canvas>().gameObject;
-            if (obj == null)
-                obj = GenerateCanvas();
-            return obj;
+            var obj = GameObject.FindObjectOfType<Canvas>();
+            return obj != null ? obj.gameObject : GenerateCanvas();
         }
     }
 }
