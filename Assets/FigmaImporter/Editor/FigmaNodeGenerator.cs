@@ -1,11 +1,10 @@
 ﻿using System;
+using System.IO;
 using System.Threading.Tasks;
 using TMPro;
 using UnityEditor;
 using UnityEngine;
-using UnityEngine.Assertions;
 using UnityEngine.UI;
-using Object = UnityEngine.Object;
 
 namespace FigmaImporter.Editor
 {
@@ -13,7 +12,7 @@ namespace FigmaImporter.Editor
     {
         Vector2 offset = Vector2.zero;
         private RectTransform root = null;
-        private FigmaImporter _importer;
+        private readonly FigmaImporter _importer;
 
         public FigmaNodeGenerator(FigmaImporter importer)
         {
@@ -25,6 +24,9 @@ namespace FigmaImporter.Editor
             FigmaNodesProgressInfo.CurrentNode ++;
             FigmaNodesProgressInfo.CurrentInfo = "Node generation in progress";
             FigmaNodesProgressInfo.ShowProgress(0f);
+            
+            //RendersFolderの有無の確認
+            GenerateRenderSaveFolder(_importer.GetRendersFolderPath());
             
             var boundingBox = node.absoluteBoundingBox;
             bool isParentCanvas = false;
@@ -343,6 +345,16 @@ namespace FigmaImporter.Editor
         {
             var obj = GameObject.FindObjectOfType<Canvas>();
             return obj != null ? obj.gameObject : GenerateCanvas();
+        }
+
+        private static void GenerateRenderSaveFolder(string path)
+        {
+            var fullPath = Path.Combine(Application.dataPath, path);
+            if (Directory.Exists(fullPath))
+            {
+                return;
+            }
+            Directory.CreateDirectory(fullPath);
         }
     }
 }
