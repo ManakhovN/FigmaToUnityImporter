@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 using System.Threading.Tasks;
 using TMPro;
 using UnityEditor;
@@ -41,12 +42,12 @@ namespace FigmaImporter.Editor
             nodeGo.name = node.name;
             var rectTransform = nodeGo.AddComponent<RectTransform>();
             SetPosition(parentT, rectTransform, boundingBox);
-            if (node.name == "bbbbbbbbbb")
-                Debug.Log("oopsie");
+
             if (!isParentCanvas)
                 SetConstraints(parentT, rectTransform, node.constraints);
+            
             SetMask(node, nodeGo);
-            if (node.type != "TEXT" && (node.children == null || node.children.Length == 0))
+            if (!IsNodeGeneratable(node))
             {
                 await RenderNodeAndApply(node, nodeGo);
             }
@@ -55,9 +56,28 @@ namespace FigmaImporter.Editor
                 AddText(node, nodeGo);
                 AddFills(node, nodeGo);
                 if (node.children == null) return;
-                foreach (var child in node.children)
-                    await GenerateNode(child, nodeGo);
+                await Task.WhenAll(node.children.Select(x => GenerateNode(x, nodeGo))); //todo: Need to fix the progress bar because of simultaneous nodes generation.
             }
+        }
+
+        private static bool IsNodeGeneratable(Node node)
+        {
+            var hasChildren = (node.children != null && node.children.Length > 0);
+            switch (node.type)
+            {
+                case "TEXT":
+                    return true;
+                case "RECTANGLE": //TODO: In case of Image fill, this type of node comes. Need to process it properly.
+                case "FRAME":
+                    if (node.fills.Length > 0 && !hasChildren && node.fills.All(x=>x.type!="IMAGE"))
+                        return (node.effects == null || node.effects.Length == 0) && 
+                               (node.strokes == null || node.strokes.Length == 0);
+                    return hasChildren;
+                default:
+                    return hasChildren;
+            }
+
+            return false;
         }
 
         private void AddText(Node node, GameObject nodeGo)
@@ -124,7 +144,7 @@ namespace FigmaImporter.Editor
             
             Image image = null;
             Sprite sprite = null;
-            FigmaNodesProgressInfo.CurrentInfo = "Saving rendered node";
+            FigmaNodesProgressInfo.CurrentInfo = "Saving rendered nodes";
             FigmaNodesProgressInfo.ShowProgress(0f);
             try
             {
@@ -179,6 +199,9 @@ namespace FigmaImporter.Editor
                             tmp.color = fill.color.ToColor();
                         else
                             image.color = fill.color.ToColor();
+                        break;
+                    case "IMAGE": //TODO: Finish this case.
+                        
                         break;
                     default:
                         gg.AddGradient(fill, image);

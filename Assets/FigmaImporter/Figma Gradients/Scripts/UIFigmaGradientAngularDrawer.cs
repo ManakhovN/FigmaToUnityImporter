@@ -20,34 +20,6 @@ namespace Nox7atra.UIFigmaGradients
                 vh.SetUIVertex(vert, i);
             }
         }
-        [EditorButton]
-        public void ProcessGradient()
-        {
-            var colorKeys = _Gradient.colorKeys;
-            var alphaKeys = _Gradient.alphaKeys;
-            var lastColorKey = _Gradient.colorKeys[colorKeys.Length - 1];
-            if (lastColorKey.time < 1)
-            {
-                var newColorKeys = new GradientColorKey[colorKeys.Length + 1];
-                var newAlphaKeys = new GradientAlphaKey[alphaKeys.Length + 1];
-                for (int i = 0; i < colorKeys.Length; i++)
-                {
-                    newColorKeys[i] = colorKeys[i];
-                }
-
-                for (int i = 0; i < alphaKeys.Length; i++)
-                {
-                    newAlphaKeys[i] = alphaKeys[i];
-                }
-                newColorKeys[newColorKeys.Length - 1] = colorKeys[0];
-                newAlphaKeys[newAlphaKeys.Length - 1] = alphaKeys[0];
-                newColorKeys[newColorKeys.Length - 1].time = 1;
-                newAlphaKeys[newAlphaKeys.Length - 1].time = 1;
-                _Gradient.colorKeys = newColorKeys;
-                _Gradient.alphaKeys = newAlphaKeys;
-                OnValidate();
-            }
-        }
         
         public override void SetParameters(params object[] parameters)
         {
