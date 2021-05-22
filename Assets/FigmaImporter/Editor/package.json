@@ -1,0 +1,13 @@
+﻿{
+  "name": "com.ManakhovN.FigmaToUnityImporter",
+  "version": "0.1.0",
+  "displayName": "FigmaToUnityImporter",
+  "description": "Convert Figma Node to UnityUI and Import",
+  "keywords": [
+    "figma",
+    "importer"
+  ],
+  "author": {
+    "name": "ManakhovN"
+  }
+}
