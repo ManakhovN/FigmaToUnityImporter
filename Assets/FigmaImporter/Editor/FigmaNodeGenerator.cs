@@ -44,8 +44,6 @@ namespace FigmaImporter.Editor
             nodeGo.name = node.name;
             var rectTransform = nodeGo.AddComponent<RectTransform>();
             SetPosition(parentT, rectTransform, boundingBox);
-            if (node.name == "bbbbbbbbbb")
-                Debug.Log("oopsie");
             if (!isParentCanvas)
                 SetConstraints(parentT, rectTransform, node.constraints);
             SetMask(node, nodeGo);
