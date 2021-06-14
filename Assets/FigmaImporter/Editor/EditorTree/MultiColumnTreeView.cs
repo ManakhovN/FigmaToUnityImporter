@@ -9,7 +9,7 @@ using UnityEngine.Assertions;
 
 namespace FigmaImporter.Editor.EditorTree
 {
-    internal class MultiColumnTreeView : TreeViewWithTreeModel<MyTreeElement>
+    internal class MultiColumnTreeView : TreeViewWithTreeModel<NodeTreeElement>
     {
         const float kRowHeights = 20f;
         const float kToggleWidth = 18f;
@@ -56,7 +56,7 @@ namespace FigmaImporter.Editor.EditorTree
         }
 
         public MultiColumnTreeView(TreeViewState state, MultiColumnHeader multicolumnHeader,
-            TreeModel<MyTreeElement> model) : base(state, multicolumnHeader, model)
+            TreeModel<NodeTreeElement> model) : base(state, multicolumnHeader, model)
         {
             // Custom setup
             rowHeight = kRowHeights;
@@ -106,7 +106,7 @@ namespace FigmaImporter.Editor.EditorTree
 
         protected override void RowGUI(RowGUIArgs args)
         {
-            var item = (TreeViewItem<MyTreeElement>) args.item;
+            var item = (TreeViewItem<NodeTreeElement>) args.item;
 
             for (int i = 0; i < args.GetNumVisibleColumns(); ++i)
             {
@@ -114,7 +114,7 @@ namespace FigmaImporter.Editor.EditorTree
             }
         }
 
-        void CellGUI(Rect cellRect, TreeViewItem<MyTreeElement> item, MyColumns column, ref RowGUIArgs args)
+        void CellGUI(Rect cellRect, TreeViewItem<NodeTreeElement> item, MyColumns column, ref RowGUIArgs args)
         {
             // Center cell rect vertically (makes it easier to place controls, icons etc in the cells)
             CenterRectUsingSingleLineHeight(ref cellRect);
@@ -219,11 +219,13 @@ namespace FigmaImporter.Editor.EditorTree
             var state = new MultiColumnHeaderState(columns);
             return state;
         }
-        
-        protected override void SingleClickedItem(int id)
+
+        protected override void SelectionChanged(IList<int> selectedIds)
         {
-            base.SingleClickedItem(id);
-            var treeViewItem = treeModel.Find(id);
+            base.SelectionChanged(selectedIds);
+            if (selectedIds.Count == 0)
+                return;
+            var treeViewItem = treeModel.Find(selectedIds[0]);
             OnItemClick(treeViewItem.figmaId);
         }
     }

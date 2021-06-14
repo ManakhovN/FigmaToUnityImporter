@@ -1,6 +1,9 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
+using FigmaImporter.Editor.EditorTree.TreeData;
 using TMPro;
 using UnityEditor;
 using UnityEngine;
@@ -19,7 +22,7 @@ namespace FigmaImporter.Editor
             _importer = importer;
         }
 
-        public async Task GenerateNode(Node node, GameObject parent = null)
+        public async Task GenerateNode(Node node, GameObject parent, IList<NodeTreeElement> nodeTreeElements)
         {
             FigmaNodesProgressInfo.CurrentNode ++;
             FigmaNodesProgressInfo.CurrentInfo = "Node generation in progress";
@@ -29,36 +32,71 @@ namespace FigmaImporter.Editor
             GenerateRenderSaveFolder(_importer.GetRendersFolderPath());
             
             var boundingBox = node.absoluteBoundingBox;
-            bool isParentCanvas = false;
             if (parent == null)
             {
-                parent = FindCanvas();
+                throw new Exception("[FigmaImporter] Parent is null. Set the canvas reference.");
+            }
+
+            var isParentCanvas = parent.GetComponent<Canvas>();
+            
+            if (isParentCanvas)    
                 offset = boundingBox.GetPosition();
-                isParentCanvas = true;
+            
+            var treeElement = nodeTreeElements.First(x => x.figmaId == node.id);
+
+            GameObject nodeGo = null;
+            if (treeElement.actionType != ActionType.None)
+            {
+                nodeGo = new GameObject();
+                RectTransform parentT = parent.GetComponent<RectTransform>();
+                if (isParentCanvas)
+                    root = parentT;
+                nodeGo.name = $"{node.name} [{node.id}]";
+                var rectTransform = nodeGo.AddComponent<RectTransform>();
+                SetPosition(parentT, rectTransform, boundingBox);
+                if (!isParentCanvas)
+                    SetConstraints(parentT, rectTransform, node.constraints);
+                SetMask(node, nodeGo);
             }
             
-            GameObject nodeGo = new GameObject();
-            RectTransform parentT = parent.GetComponent<RectTransform>();
-            if (isParentCanvas)
-                root = parentT;
-            nodeGo.name = node.name;
-            var rectTransform = nodeGo.AddComponent<RectTransform>();
-            SetPosition(parentT, rectTransform, boundingBox);
-            if (!isParentCanvas)
-                SetConstraints(parentT, rectTransform, node.constraints);
-            SetMask(node, nodeGo);
-            if (node.type != "TEXT" && (node.children == null || node.children.Length == 0))
+            switch (treeElement.actionType)
             {
-                await RenderNodeAndApply(node, nodeGo);
+                case ActionType.None:
+                    break;
+                case ActionType.Render:
+                    if (treeElement.sprite != null)
+                    {
+                        AddOverridenSprite(nodeGo, treeElement.sprite);
+                        break;
+                    }
+                    await RenderNodeAndApply(node, nodeGo);
+                    break;
+                case ActionType.Generate:
+                    if (treeElement.sprite != null)
+                    {
+                        AddOverridenSprite(nodeGo, treeElement.sprite);
+                    }
+                    else
+                    {
+                        AddText(node, nodeGo);
+                        AddFills(node, nodeGo);
+                        if (node.children == null) return;
+                    }
+                    if (node.children == null) return;
+                    await Task.WhenAll(node.children.Select(x => GenerateNode(x, nodeGo, nodeTreeElements))); //todo: Need to fix the progress bar because of simultaneous nodes generation.
+                    break;
+                case ActionType.Transform:
+                    
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException();
             }
-            else
-            {
-                AddText(node, nodeGo);
-                AddFills(node, nodeGo);
-                if (node.children == null) return;
-                foreach (var child in node.children)
-                    await GenerateNode(child, nodeGo);
-            }
+        }
+
+        private void AddOverridenSprite(GameObject nodeGo, Sprite overridenSprite)
+        {
+            var image = nodeGo.AddComponent<Image>();
+            image.sprite = overridenSprite;
         }
 
         private void AddText(Node node, GameObject nodeGo)
@@ -337,12 +375,6 @@ namespace FigmaImporter.Editor
             var canvasScaler = canvasGO.AddComponent<CanvasScaler>();
             var graphicsRaycaster = canvasGO.AddComponent<GraphicRaycaster>();
             return canvasGO;
-        }
-
-        public GameObject FindCanvas()
-        {
-            var obj = GameObject.FindObjectOfType<Canvas>();
-            return obj != null ? obj.gameObject : GenerateCanvas();
         }
 
         private static void GenerateRenderSaveFolder(string path)

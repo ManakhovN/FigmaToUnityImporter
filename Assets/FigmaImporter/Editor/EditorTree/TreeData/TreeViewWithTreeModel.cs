@@ -24,14 +24,6 @@ namespace FigmaImporter.Editor.EditorTree.TreeData
 		public event Action treeChanged;
 
 		public TreeModel<T> treeModel { get { return m_TreeModel; } }
-		public event Action<IList<TreeViewItem>>  beforeDroppingDraggedItems;
-
-
-		public TreeViewWithTreeModel (TreeViewState state, TreeModel<T> model) : base (state)
-		{
-			Init (model);
-		}
-
 		public TreeViewWithTreeModel (TreeViewState state, MultiColumnHeader multiColumnHeader, TreeModel<T> model)
 			: base(state, multiColumnHeader)
 		{

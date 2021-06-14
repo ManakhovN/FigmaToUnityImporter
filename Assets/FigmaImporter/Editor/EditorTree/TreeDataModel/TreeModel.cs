@@ -27,6 +27,8 @@ namespace UnityEditor.TreeViewExamples
 			get { return m_Data.Count; }
 		}
 
+		public IList<T> Data => m_Data;
+
 		public TreeModel (IList<T> data)
 		{
 			SetData (data);
@@ -52,11 +54,6 @@ namespace UnityEditor.TreeViewExamples
 				m_Root = TreeElementUtility.ListToTree(data);
 
 			m_MaxID = m_Data.Max(e => e.id);
-		}
-
-		public int GenerateUniqueID ()
-		{
-			return ++m_MaxID;
 		}
 
 		public IList<int> GetAncestors (int id)
@@ -106,12 +103,6 @@ namespace UnityEditor.TreeViewExamples
 			return parentsBelow;
 		}
 
-		public void RemoveElements (IList<int> elementIDs)
-		{
-			IList<T> elements = m_Data.Where (element => elementIDs.Contains (element.id)).ToArray ();
-			RemoveElements (elements);
-		}
-
 		public void RemoveElements (IList<T> elements)
 		{
 			foreach (var element in elements)
@@ -131,158 +122,10 @@ namespace UnityEditor.TreeViewExamples
 			Changed();
 		}
 
-		public void AddElements (IList<T> elements, TreeElement parent, int insertPosition)
-		{
-			if (elements == null)
-				throw new ArgumentNullException("elements", "elements is null");
-			if (elements.Count == 0)
-				throw new ArgumentNullException("elements", "elements Count is 0: nothing to add");
-			if (parent == null)
-				throw new ArgumentNullException("parent", "parent is null");
-
-			if (parent.children == null)
-				parent.children = new List<TreeElement>();
-
-			parent.children.InsertRange(insertPosition, elements.Cast<TreeElement> ());
-			foreach (var element in elements)
-			{
-				element.parent = parent;
-				element.depth = parent.depth + 1;
-				TreeElementUtility.UpdateDepthValues(element);
-			}
-
-			TreeElementUtility.TreeToList(m_Root, m_Data);
-
-			Changed();
-		}
-
-		public void AddRoot (T root)
-		{
-			if (root == null)
-				throw new ArgumentNullException("root", "root is null");
-
-			if (m_Data == null)
-				throw new InvalidOperationException("Internal Error: data list is null");
-
-			if (m_Data.Count != 0)
-				throw new InvalidOperationException("AddRoot is only allowed on empty data list");
-
-			root.id = GenerateUniqueID ();
-			root.depth = -1;
-			m_Data.Add (root);
-		}
-
-		public void AddElement (T element, TreeElement parent, int insertPosition)
-		{
-			if (element == null)
-				throw new ArgumentNullException("element", "element is null");
-			if (parent == null)
-				throw new ArgumentNullException("parent", "parent is null");
-		
-			if (parent.children == null)
-				parent.children = new List<TreeElement> ();
-
-			parent.children.Insert (insertPosition, element);
-			element.parent = parent;
-
-			TreeElementUtility.UpdateDepthValues(parent);
-			TreeElementUtility.TreeToList(m_Root, m_Data);
-
-			Changed ();
-		}
-
-		public void MoveElements(TreeElement parentElement, int insertionIndex, List<TreeElement> elements)
-		{
-			if (insertionIndex < 0)
-				throw new ArgumentException("Invalid input: insertionIndex is -1, client needs to decide what index elements should be reparented at");
-
-			// Invalid reparenting input
-			if (parentElement == null)
-				return;
-
-			// We are moving items so we adjust the insertion index to accomodate that any items above the insertion index is removed before inserting
-			if (insertionIndex > 0)
-				insertionIndex -= parentElement.children.GetRange(0, insertionIndex).Count(elements.Contains);
-
-			// Remove draggedItems from their parents
-			foreach (var draggedItem in elements)
-			{
-				draggedItem.parent.children.Remove(draggedItem);	// remove from old parent
-				draggedItem.parent = parentElement;					// set new parent
-			} 
-
-			if (parentElement.children == null)
-				parentElement.children = new List<TreeElement>();
-
-			// Insert dragged items under new parent
-			parentElement.children.InsertRange(insertionIndex, elements);
-
-			TreeElementUtility.UpdateDepthValues (root);
-			TreeElementUtility.TreeToList (m_Root, m_Data);
-
-			Changed ();
-		}
-
 		void Changed ()
 		{
 			if (modelChanged != null)
 				modelChanged ();
 		}
 	}
-
-
-	#region Tests
-	class TreeModelTests
-	{
-		[Test]
-		public static void TestTreeModelCanAddElements()
-		{
-			var root = new TreeElement {name = "Root", depth = -1};
-			var listOfElements = new List<TreeElement>();
-			listOfElements.Add(root);
-
-			var model = new TreeModel<TreeElement>(listOfElements);
-			model.AddElement(new TreeElement { name = "Element"  }, root, 0);
-			model.AddElement(new TreeElement { name = "Element " + root.children.Count }, root, 0);
-			model.AddElement(new TreeElement { name = "Element " + root.children.Count }, root, 0);
-			model.AddElement(new TreeElement { name = "Sub Element" }, root.children[1], 0);
-
-			// Assert order is correct
-			string[] namesInCorrectOrder = { "Root", "Element 2", "Element 1", "Sub Element", "Element" };
-			Assert.AreEqual(namesInCorrectOrder.Length, listOfElements.Count, "Result count does not match");
-			for (int i = 0; i < namesInCorrectOrder.Length; ++i)
-				Assert.AreEqual(namesInCorrectOrder[i], listOfElements[i].name);
-
-			// Assert depths are valid
-			TreeElementUtility.ValidateDepthValues(listOfElements);
-		}
-	
-		[Test]
-		public static void TestTreeModelCanRemoveElements()
-		{
-			var root = new TreeElement { name = "Root", depth = -1 };
-			var listOfElements = new List<TreeElement>();
-			listOfElements.Add(root);
-
-			var model = new TreeModel<TreeElement>(listOfElements);
-			model.AddElement(new TreeElement { name = "Element"  }, root, 0);
-			model.AddElement(new TreeElement { name = "Element " + root.children.Count }, root, 0);
-			model.AddElement(new TreeElement { name = "Element " + root.children.Count }, root, 0);
-			model.AddElement(new TreeElement { name = "Sub Element" }, root.children[1], 0);
-
-			model.RemoveElements(new[] { root.children[1].children[0], root.children[1] });
-
-			// Assert order is correct
-			string[] namesInCorrectOrder = { "Root", "Element 2", "Element" };
-			Assert.AreEqual(namesInCorrectOrder.Length, listOfElements.Count, "Result count does not match");
-			for (int i = 0; i < namesInCorrectOrder.Length; ++i)
-				Assert.AreEqual(namesInCorrectOrder[i], listOfElements[i].name);
-
-			// Assert depths are valid
-			TreeElementUtility.ValidateDepthValues(listOfElements);
-		}
-	}
-
-	#endregion
-
 }

@@ -8,13 +8,13 @@ namespace FigmaImporter.Editor.EditorTree.TreeData
 {
 
 	[Serializable]
-	internal class MyTreeElement : TreeElement
+	public class NodeTreeElement : TreeElement
 	{
 		public string figmaId;
 		public ActionType actionType;
 		public Sprite sprite;
 
-		public MyTreeElement (string name, string figmaId, ActionType actionType, Sprite sprite, int depth, int id) : base (name, depth, id)
+		public NodeTreeElement (string name, string figmaId, ActionType actionType, Sprite sprite, int depth, int id) : base (name, depth, id)
 		{
 			this.actionType = actionType;
 			this.sprite = sprite;
@@ -22,7 +22,7 @@ namespace FigmaImporter.Editor.EditorTree.TreeData
 		}
 	}
 
-	internal enum ActionType
+	public enum ActionType
 	{
 		None, Render, Generate, Transform
 	}

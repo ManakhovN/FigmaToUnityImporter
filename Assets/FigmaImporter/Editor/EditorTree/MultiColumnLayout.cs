@@ -36,26 +36,26 @@ namespace FigmaImporter.Editor.EditorTree
 				if (firstInit)
 					multiColumnHeader.ResizeToFit ();
 				int idCounter = 0;
-				var treeModel = new TreeModel<MyTreeElement>(GetData(nodes, ref idCounter));
+				var treeModel = new TreeModel<NodeTreeElement>(GetData(nodes, ref idCounter));
 				m_TreeView = new MultiColumnTreeView(m_TreeViewState, multiColumnHeader, treeModel);
 				m_Initialized = true;
 			}
 		}
 		
-		IList<MyTreeElement> GetData(IList<Node> nodes, ref int idCounter, int depth = -1)
+		IList<NodeTreeElement> GetData(IList<Node> nodes, ref int idCounter, int depth = -1)
 		{
-			List<MyTreeElement> result = new List<MyTreeElement>();
+			List<NodeTreeElement> result = new List<NodeTreeElement>();
 			int currentDepth = depth;
 			if (currentDepth == -1)
 			{
-				result.Add(new MyTreeElement("Root", "Root", ActionType.None, null, currentDepth, idCounter));
+				result.Add(new NodeTreeElement("Root", "Root", ActionType.None, null, currentDepth, idCounter));
 				idCounter++;
 				currentDepth++;
 			}
 
 			foreach (var node in nodes)
 			{
-				result.Add(new MyTreeElement(node.name,node.id, ActionType.None, null, currentDepth, idCounter));
+				result.Add(new NodeTreeElement(node.name,node.id, ActionType.None, null, currentDepth, idCounter));
 				idCounter++;
 				if (node.children != null)
 					result.AddRange(GetData(node.children, ref idCounter, currentDepth + 1));				
