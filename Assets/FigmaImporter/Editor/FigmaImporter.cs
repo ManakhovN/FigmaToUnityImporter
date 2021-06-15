@@ -105,6 +105,12 @@ namespace FigmaImporter.Editor
         private void OnDestroy()
         {
             _treeView.TreeView.OnItemClick -= ItemClicked;
+            _treeView = null;
+            foreach (var texture in _texturesCache)
+            {
+                DestroyImmediate(texture.Value);
+            }
+            _texturesCache.Clear();
         }
 
         private void DrawNodeTree()
