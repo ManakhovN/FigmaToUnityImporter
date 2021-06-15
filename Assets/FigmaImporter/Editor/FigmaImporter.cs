@@ -1,6 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
+using FigmaImporter.Editor.EditorTree;
+using FigmaImporter.Editor.EditorTree.TreeData;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.Networking;
@@ -18,21 +21,27 @@ namespace FigmaImporter.Editor
         }
 
         private static FigmaImporterSettings _settings = null;
+        private static GameObject _rootObject;
+        private static List<Node> _nodes = null;
+        private MultiColumnLayout _treeView;
+        private string _lastClickedNode = String.Empty;
+        Dictionary<string, Texture2D> _texturesCache = new Dictionary<string, Texture2D>();
 
         void OnGUI()
         {
             if (_settings == null)
                 _settings = FigmaImporterSettings.GetInstance();
 
+            int currentPosY = 0;
             if (GUILayout.Button("OpenOauthUrl"))
             {
                 OpenOauthUrl();
             }
 
-
             _settings.ClientCode = EditorGUILayout.TextField("ClientCode", _settings.ClientCode);
             _settings.State = EditorGUILayout.TextField("State", _settings.State);
             EditorUtility.SetDirty(_settings);
+            
             if (GUILayout.Button("GetToken"))
             {
                 _settings.Token = GetOAuthToken();
@@ -41,11 +50,133 @@ namespace FigmaImporter.Editor
             GUILayout.TextArea("Token:" + _settings.Token);
             _settings.Url = EditorGUILayout.TextField("Url", _settings.Url);
             _settings.RendersPath = EditorGUILayout.TextField("RendersPath", _settings.RendersPath);
-            if (GUILayout.Button("GetFile"))
+
+            _rootObject = (GameObject) EditorGUILayout.ObjectField("Root Object", _rootObject, typeof(GameObject), true);
+            var redStyle = new GUIStyle(EditorStyles.label);
+            
+            redStyle.normal.textColor = UnityEngine.Color.red;
+            EditorGUILayout.LabelField("Preview on the right side loaded via Figma API. It doesn't represent the final result!!!!", redStyle);
+
+            if (GUILayout.Button("Get Node Data"))
+            {
+                string apiUrl = ConvertToApiUrl(_settings.Url);
+                GetNodes(apiUrl);
+            }
+
+            if (_nodes != null)
+            {
+                DrawNodeTree();
+                DrawPreview();
+                ShowExecuteButton();
+            }
+        }
+
+        private void DrawPreview()
+        {
+            var lastRect = GUILayoutUtility.GetLastRect();
+            var widthMax = position.width / 2f;
+            var heightMax = this.position.height - lastRect.yMax - 50;
+            var height = heightMax;
+            var width = widthMax;
+            _texturesCache.TryGetValue(_lastClickedNode, out var lastLoadedPreview);
+            if (lastLoadedPreview != null)
+            {
+                if (lastLoadedPreview.width < widthMax && lastLoadedPreview.height < heightMax)
+                {
+                    width = lastLoadedPreview.width;
+                    height = lastLoadedPreview.height;
+                }
+                else
+                {
+                    height = widthMax * lastLoadedPreview.height / lastLoadedPreview.width;
+                    if (height > heightMax)
+                    {
+                        height = heightMax;
+                        width = heightMax * lastLoadedPreview.width / lastLoadedPreview.height;
+                    }
+                }
+            }
+
+            var previewRect = new Rect(position.width / 2f, lastRect.yMax + 20, width, height);
+            if (lastLoadedPreview != null)
+                GUI.DrawTexture(previewRect, lastLoadedPreview);
+        }
+
+        private void OnDestroy()
+        {
+            _treeView.TreeView.OnItemClick -= ItemClicked;
+            _treeView = null;
+            foreach (var texture in _texturesCache)
+            {
+                DestroyImmediate(texture.Value);
+            }
+            _texturesCache.Clear();
+        }
+
+        private void DrawNodeTree()
+        {
+            bool justCreated = false;
+            if (_treeView == null)
+            {
+                _treeView = new MultiColumnLayout();
+                justCreated = true;
+            }
+
+            var lastRect = GUILayoutUtility.GetLastRect();
+            var width = position.width / 2f;
+            var treeRect = new Rect(0, lastRect.yMax + 20, width, this.position.height - lastRect.yMax - 50);
+            _treeView.OnGUI(treeRect, _nodes);
+            var nodesTreeElements = _treeView.TreeView.treeModel.Data;
+            if (justCreated)
+            {
+                _treeView.TreeView.OnItemClick += ItemClicked;
+                NodesAnalyzer.Analyze(_nodes, nodesTreeElements);
+                LoadAllRenders(nodesTreeElements);
+            }
+
+            NodesAnalyzer.CheckActions(_nodes, nodesTreeElements);
+        }
+
+        private async void LoadAllRenders(IList<NodeTreeElement> nodesTreeElements)
+        {
+            if (nodesTreeElements == null || nodesTreeElements.Count == 0)
+                return;
+            await Task.WhenAll(nodesTreeElements.Select(x => GetImage(x.figmaId)));
+            _lastClickedNode = nodesTreeElements[0].figmaId;
+        }
+
+        private async void ItemClicked(string obj)
+        {
+            Debug.Log($"[FigmaImporter] {obj} clicked");
+            _lastClickedNode = obj;
+            if (!_texturesCache.TryGetValue(obj, out var tex))
+            {
+                await GetImage(obj, false);
+            }
+            Repaint();
+        }
+
+        private void ShowExecuteButton()
+        {
+            var lastRect = GUILayoutUtility.GetLastRect();
+            var buttonRect = new Rect(lastRect.xMin, this.position.height - 30, lastRect.width, 30f);
+            if (GUI.Button(buttonRect, "Generate nodes"))
             {
                 string apiUrl = ConvertToApiUrl(_settings.Url);
                 GetFile(apiUrl);
             }
+        }
+
+        public async Task GetNodes(string url)
+        {
+            _nodes = await GetNodeInfo(url);
+            _treeView.TreeView.OnItemClick -= ItemClicked;
+            _treeView = null;
+            foreach (var texture in _texturesCache)
+            {
+                DestroyImmediate(texture.Value);
+            }
+            _texturesCache.Clear();
         }
 
         private static string _fileName;
@@ -114,11 +245,38 @@ namespace FigmaImporter.Editor
 
         private async void GetFile(string fileUrl)
         {
-            WWWForm form = new WWWForm();
-            string request = fileUrl;
-            FigmaNodesProgressInfo.CurrentNode = FigmaNodesProgressInfo.NodesCount = 0;
-            FigmaNodesProgressInfo.CurrentTitle = "Loading nodes info";
-            using (UnityWebRequest www = UnityWebRequest.Get(request))
+            if (_rootObject == null)
+            {
+                Debug.LogError($"[FigmaImporter] Root object is null. Please add reference to a Canvas");
+                return;
+            }
+            
+            if (_rootObject.GetComponent<Canvas>() == null)
+            {
+                Debug.LogError($"[FigmaImporter] Root object is not a Canvas. This feature is not supported yet");
+                return;
+            }
+            
+            if (_nodes == null)
+            {
+                FigmaNodesProgressInfo.CurrentNode = FigmaNodesProgressInfo.NodesCount = 0;
+                FigmaNodesProgressInfo.CurrentTitle = "Loading nodes info";
+                await GetNodes(fileUrl);
+            }
+
+            FigmaNodeGenerator generator = new FigmaNodeGenerator(this);
+            foreach (var node in _nodes)
+            {
+                var nodeTreeElements = _treeView.TreeView.treeModel.Data;
+                await generator.GenerateNode(node, _rootObject, nodeTreeElements);
+            }
+
+            FigmaNodesProgressInfo.HideProgress();
+        }
+
+        private async Task<List<Node>> GetNodeInfo(string nodeUrl)
+        {
+            using (UnityWebRequest www = UnityWebRequest.Get(nodeUrl))
             {
                 www.SetRequestHeader("Authorization", $"Bearer {_settings.Token}");
                 www.SendWebRequest();
@@ -128,7 +286,7 @@ namespace FigmaImporter.Editor
                     FigmaNodesProgressInfo.ShowProgress(www.downloadProgress);
                     await Task.Delay(100);
                 }
-                
+
                 FigmaNodesProgressInfo.HideProgress();
 
                 if (www.isNetworkError)
@@ -139,14 +297,13 @@ namespace FigmaImporter.Editor
                 {
                     var result = www.downloadHandler.text;
                     FigmaParser parser = new FigmaParser();
-                    var nodes = parser.ParseResult(result);
-                    FigmaNodesProgressInfo.NodesCount = GetNodesCount(nodes);
-                    FigmaNodeGenerator generator = new FigmaNodeGenerator(this);
-                    foreach (var node in nodes)
-                        await generator.GenerateNode(node);
+                    return parser.ParseResult(result);
                 }
+
                 FigmaNodesProgressInfo.HideProgress();
             }
+
+            return null;
         }
 
         private int GetNodesCount(IEnumerable<Node> nodes)
@@ -159,13 +316,19 @@ namespace FigmaImporter.Editor
                 count++;
                 count += GetNodesCount(node.children);
             }
+
             return count;
         }
 
         private const string ImagesUrl = "https://api.figma.com/v1/images/{0}?ids={1}&svg_include_id=true&format=png";
 
-        public async Task<Texture2D> GetImage(string nodeId)
+        public async Task<Texture2D> GetImage(string nodeId, bool showProgress = true)
         {
+            if (_texturesCache.TryGetValue(nodeId, out var tex))
+            {
+                return _texturesCache[nodeId];
+            }
+            
             WWWForm form = new WWWForm();
             string request = string.Format(ImagesUrl, _fileName, nodeId);
             using (UnityWebRequest www = UnityWebRequest.Get(request))
@@ -175,12 +338,13 @@ namespace FigmaImporter.Editor
                 while (!www.isDone)
                 {
                     FigmaNodesProgressInfo.CurrentInfo = "Getting node image info";
-                    FigmaNodesProgressInfo.ShowProgress(www.downloadProgress);
+                    if (showProgress)
+                        FigmaNodesProgressInfo.ShowProgress(www.downloadProgress);
                     await Task.Delay(100);
                 }
-                
+
                 FigmaNodesProgressInfo.HideProgress();
-                
+
                 if (www.isNetworkError)
                 {
                     Debug.Log(www.error);
@@ -194,7 +358,9 @@ namespace FigmaImporter.Editor
                     {
                         if (s.Contains("http"))
                         {
-                            return await LoadTextureByUrl(s);
+                            var texture = await LoadTextureByUrl(s, showProgress);
+                            _texturesCache[nodeId] = texture;
+                            return texture;
                         }
                     }
                 }
@@ -208,26 +374,28 @@ namespace FigmaImporter.Editor
             return _settings.RendersPath;
         }
 
-        private async Task<Texture2D> LoadTextureByUrl(string url)
+        private async Task<Texture2D> LoadTextureByUrl(string url, bool showProgress = true)
         {
             using (UnityWebRequest request = UnityWebRequestTexture.GetTexture(url))
             {
                 request.SendWebRequest();
-                while (request.downloadProgress<1f)
+                while (request.downloadProgress < 1f)
                 {
-                    FigmaNodesProgressInfo.ShowProgress(request.downloadProgress);
+                    if (showProgress)
+                        FigmaNodesProgressInfo.ShowProgress(request.downloadProgress);
                     await Task.Delay(100);
                 }
+
                 if (request.isNetworkError || request.isHttpError)
                     return null;
                 var data = request.downloadHandler.data;
-                Texture2D t = new Texture2D(0,0);
+                Texture2D t = new Texture2D(0, 0);
                 t.LoadImage(data);
                 FigmaNodesProgressInfo.HideProgress();
                 return t;
             }
         }
-        
+
 
         [Serializable]
         public class AuthResult
