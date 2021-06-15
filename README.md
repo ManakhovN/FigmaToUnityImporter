@@ -49,6 +49,7 @@ The actions are:
 ![Get File](./ReadmeImages/step6.png)
 
 When you picked all actions. Press "Generate nodes" button. And it will try generating the node in referenced Canvas. That's all!
+
 ![Get File](./ReadmeImages/step7.png)
 
 There is also one thing with Fonts.
