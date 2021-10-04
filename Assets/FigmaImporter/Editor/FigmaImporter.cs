@@ -247,13 +247,7 @@ namespace FigmaImporter.Editor
         {
             if (_rootObject == null)
             {
-                Debug.LogError($"[FigmaImporter] Root object is null. Please add reference to a Canvas");
-                return;
-            }
-
-            if (_rootObject.GetComponent<Canvas>() == null)
-            {
-                Debug.LogError($"[FigmaImporter] Root object is not a Canvas. This feature is not supported yet");
+                Debug.LogError($"[FigmaImporter] Root object is null. Please add reference to a Canvas or previous version of the object");
                 return;
             }
 
