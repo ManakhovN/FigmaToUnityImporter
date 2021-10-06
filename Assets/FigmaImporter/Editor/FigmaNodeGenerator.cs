@@ -42,17 +42,34 @@ namespace FigmaImporter.Editor
             if (isParentCanvas)    
                 offset = boundingBox.GetPosition();
             
+            GameObject nodeGo = null;
             var treeElement = nodeTreeElements.First(x => x.figmaId == node.id);
 
-            GameObject nodeGo = null;
             if (treeElement.actionType != ActionType.None)
             {
-                nodeGo = new GameObject();
-                RectTransform parentT = parent.GetComponent<RectTransform>();
-                if (isParentCanvas)
-                    root = parentT;
-                nodeGo.name = $"{node.name} [{node.id}]";
-                var rectTransform = nodeGo.AddComponent<RectTransform>();
+                nodeGo = isParentCanvas? null: TryToFindPreviouslyCreatedObject(parent, node.id);
+                RectTransform parentT = null;
+                RectTransform rectTransform = null;
+                if (nodeGo == null)
+                {
+                    nodeGo = new GameObject();
+                    parentT = parent.GetComponent<RectTransform>();
+                    if (isParentCanvas)
+                        root = parentT;
+                    nodeGo.name = $"{node.name} [{node.id}]";
+                    rectTransform = nodeGo.AddComponent<RectTransform>();
+                    SetParent(parentT, rectTransform);
+                }
+                else
+                {
+                    rectTransform = (RectTransform) nodeGo.transform;
+                    parent = rectTransform.parent.gameObject;
+                    isParentCanvas = parent.GetComponent<Canvas>();
+                    if (isParentCanvas)    
+                        offset = boundingBox.GetPosition();
+                    parentT = (RectTransform)nodeGo.transform.parent;
+                }
+
                 SetPosition(parentT, rectTransform, boundingBox);
                 if (!isParentCanvas)
                     SetConstraints(parentT, rectTransform, node.constraints);
@@ -93,6 +110,25 @@ namespace FigmaImporter.Editor
             }
         }
 
+        private GameObject TryToFindPreviouslyCreatedObject(GameObject parent, string nodeId)
+        {
+            string id = $"[{nodeId}]";
+            if (parent.name.Contains(id))
+                return parent;
+            foreach (Transform child in parent.transform)
+            {
+                if (child.name.Contains(id))
+                    return child.gameObject;
+            }
+            return null;
+        }
+
+        private void SetParent(RectTransform parentT, RectTransform rectTransform)
+        {
+            rectTransform.SetParent(parentT);
+            rectTransform.localScale = Vector3.one;
+        }
+
         private void AddOverridenSprite(GameObject nodeGo, Sprite overridenSprite)
         {
             var image = nodeGo.AddComponent<Image>();
@@ -106,12 +142,13 @@ namespace FigmaImporter.Editor
                 var t = nodeGo.transform as RectTransform;
                 var offsetMin = t.offsetMin;
                 var offsetMax = t.offsetMax;
-                var tmp = nodeGo
-                    .AddComponent<TextMeshProUGUI>(); // Somehow adding component changes size of the object???????
+                var tmp = nodeGo.GetComponent<TextMeshProUGUI>();
+                if (tmp == null)
+                    tmp = nodeGo.AddComponent<TextMeshProUGUI>(); // Somehow adding component changes size of the object???????
                 t.offsetMin = offsetMin;
                 t.offsetMax = offsetMax;
                 var style = node.style;
-                tmp.fontSize = style.fontSize;
+                tmp.fontSize = style.fontSize * _importer.Scale;
                 tmp.text = node.characters;
                 var fontLinksId = AssetDatabase.FindAssets("t:FontLinks")[0];
                 FontLinks fl = AssetDatabase.LoadAssetAtPath<FontLinks>(AssetDatabase.GUIDToAssetPath(fontLinksId));
@@ -198,8 +235,8 @@ namespace FigmaImporter.Editor
             var gradientGeneratorId = AssetDatabase.FindAssets("t:GradientsGenerator")[0];
             GradientsGenerator gg =
                 AssetDatabase.LoadAssetAtPath<GradientsGenerator>(AssetDatabase.GUIDToAssetPath(gradientGeneratorId));
-            Image image = null;
-            if (node.fills.Length > 0f && nodeGo.GetComponent<Graphic>() == null)
+            Image image = nodeGo.GetComponent<Image>();
+            if (node.fills.Length > 0f && image == null && nodeGo.GetComponent<Graphic>()==null)
                 image = nodeGo.AddComponent<Image>();
             for (var index = 0; index < node.fills.Length; index++)
             {
@@ -354,17 +391,41 @@ namespace FigmaImporter.Editor
         private void SetPosition(RectTransform parent, RectTransform rectTransform, AbsoluteBoundingBox boundingBox)
         {
             var canvas = parent.GetComponentInParent<Canvas>();
-            rectTransform.SetParent(canvas.transform);
-            rectTransform.anchorMin = rectTransform.anchorMax = Vector2.up;
             rectTransform.pivot = Vector2.up;
             var newPosition = boundingBox.GetPosition() - offset;
-            if (root != null)
-                newPosition.y = -newPosition.y;
-            rectTransform.anchoredPosition = newPosition;
-            rectTransform.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, boundingBox.width);
-            rectTransform.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, boundingBox.height);
-            rectTransform.SetParent(parent);
-            rectTransform.transform.localScale = Vector3.one;
+            newPosition *= _importer.Scale;
+            var v = ConvertVector((RectTransform)canvas.transform, newPosition);
+            rectTransform.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, boundingBox.width * _importer.Scale);
+            rectTransform.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, boundingBox.height * _importer.Scale);
+
+            rectTransform.position = v;
+        }
+
+        private Vector3 ConvertVector(RectTransform parent, Vector3 anchoredPosition)
+        {
+            Vector3[] corners = new Vector3[4];
+            parent.GetWorldCorners(corners);
+            var deltaX = corners[3] - corners[0];
+            var deltaY = corners[3] - corners[2];
+            var posX = anchoredPosition.x * deltaX / parent.rect.width;
+            var posY = anchoredPosition.y * deltaY / parent.rect.height;
+            return posX + posY + corners[1];
+        }
+
+        private Vector2 SwitchToRectTransform(RectTransform from, RectTransform to)
+        {
+            Vector2 localPoint;
+            Vector2 fromPivotDerivedOffset = new Vector2(from.rect.width * from.pivot.x + from.rect.xMin, from.rect.height * from.pivot.y + from.rect.yMin);
+            Vector2 screenP = RectTransformUtility.WorldToScreenPoint(null, from.position);
+            screenP += fromPivotDerivedOffset;
+            RectTransformUtility.ScreenPointToLocalPointInRectangle(to, screenP, null, out localPoint);
+            Vector2 pivotDerivedOffset = new Vector2(to.rect.width * to.pivot.x + to.rect.xMin, to.rect.height * to.pivot.y + to.rect.yMin);
+            return to.anchoredPosition + localPoint - pivotDerivedOffset;
+        }
+        
+        private void Compare(Vector3 before, Vector3 after)
+        {
+            Debug.Log($"{before} :::: {after}");
         }
 
         public GameObject GenerateCanvas()

@@ -25,7 +25,14 @@ namespace FigmaImporter.Editor
         private static List<Node> _nodes = null;
         private MultiColumnLayout _treeView;
         private string _lastClickedNode = String.Empty;
+        
+        private static string _fileName;
+        private static string _nodeId;
+        private float _scale = 1f;
+
         Dictionary<string, Texture2D> _texturesCache = new Dictionary<string, Texture2D>();
+
+        public float Scale => _scale;
 
         void OnGUI()
         {
@@ -40,8 +47,9 @@ namespace FigmaImporter.Editor
 
             _settings.ClientCode = EditorGUILayout.TextField("ClientCode", _settings.ClientCode);
             _settings.State = EditorGUILayout.TextField("State", _settings.State);
-            EditorUtility.SetDirty(_settings);
             
+            EditorUtility.SetDirty(_settings);
+
             if (GUILayout.Button("GetToken"))
             {
                 _settings.Token = GetOAuthToken();
@@ -51,11 +59,16 @@ namespace FigmaImporter.Editor
             _settings.Url = EditorGUILayout.TextField("Url", _settings.Url);
             _settings.RendersPath = EditorGUILayout.TextField("RendersPath", _settings.RendersPath);
 
-            _rootObject = (GameObject) EditorGUILayout.ObjectField("Root Object", _rootObject, typeof(GameObject), true);
-            var redStyle = new GUIStyle(EditorStyles.label);
+            _rootObject =
+                (GameObject) EditorGUILayout.ObjectField("Root Object", _rootObject, typeof(GameObject), true);
             
+            _scale = EditorGUILayout.Slider("Scale", _scale, 0.01f, 4f);
+            
+            var redStyle = new GUIStyle(EditorStyles.label);
+
             redStyle.normal.textColor = UnityEngine.Color.red;
-            EditorGUILayout.LabelField("Preview on the right side loaded via Figma API. It doesn't represent the final result!!!!", redStyle);
+            EditorGUILayout.LabelField(
+                "Preview on the right side loaded via Figma API. It doesn't represent the final result!!!!", redStyle);
 
             if (GUILayout.Button("Get Node Data"))
             {
@@ -104,12 +117,15 @@ namespace FigmaImporter.Editor
 
         private void OnDestroy()
         {
-            _treeView.TreeView.OnItemClick -= ItemClicked;
+            if (_treeView != null && _treeView.TreeView != null)
+                _treeView.TreeView.OnItemClick -= ItemClicked;
             _treeView = null;
+            _nodes = null;
             foreach (var texture in _texturesCache)
             {
                 DestroyImmediate(texture.Value);
             }
+
             _texturesCache.Clear();
         }
 
@@ -169,18 +185,10 @@ namespace FigmaImporter.Editor
 
         public async Task GetNodes(string url)
         {
+            OnDestroy();
             _nodes = await GetNodeInfo(url);
-            _treeView.TreeView.OnItemClick -= ItemClicked;
-            _treeView = null;
-            foreach (var texture in _texturesCache)
-            {
-                DestroyImmediate(texture.Value);
-            }
-            _texturesCache.Clear();
+            FigmaNodesProgressInfo.HideProgress();
         }
-
-        private static string _fileName;
-        private static string _nodeId;
 
         private string ConvertToApiUrl(string s)
         {
@@ -247,16 +255,10 @@ namespace FigmaImporter.Editor
         {
             if (_rootObject == null)
             {
-                Debug.LogError($"[FigmaImporter] Root object is null. Please add reference to a Canvas");
+                Debug.LogError($"[FigmaImporter] Root object is null. Please add reference to a Canvas or previous version of the object");
                 return;
             }
-            
-            if (_rootObject.GetComponent<Canvas>() == null)
-            {
-                Debug.LogError($"[FigmaImporter] Root object is not a Canvas. This feature is not supported yet");
-                return;
-            }
-            
+
             if (_nodes == null)
             {
                 FigmaNodesProgressInfo.CurrentNode = FigmaNodesProgressInfo.NodesCount = 0;
@@ -280,7 +282,7 @@ namespace FigmaImporter.Editor
             {
                 www.SetRequestHeader("Authorization", $"Bearer {_settings.Token}");
                 www.SendWebRequest();
-                while (!www.isDone)
+                while (!www.isDone && !www.isNetworkError)
                 {
                     FigmaNodesProgressInfo.CurrentInfo = "Loading nodes info";
                     FigmaNodesProgressInfo.ShowProgress(www.downloadProgress);
@@ -320,7 +322,7 @@ namespace FigmaImporter.Editor
             return count;
         }
 
-        private const string ImagesUrl = "https://api.figma.com/v1/images/{0}?ids={1}&svg_include_id=true&format=png";
+        private const string ImagesUrl = "https://api.figma.com/v1/images/{0}?ids={1}&svg_include_id=true&format=png&scale={2}";
 
         public async Task<Texture2D> GetImage(string nodeId, bool showProgress = true)
         {
@@ -328,14 +330,14 @@ namespace FigmaImporter.Editor
             {
                 return _texturesCache[nodeId];
             }
-            
+
             WWWForm form = new WWWForm();
-            string request = string.Format(ImagesUrl, _fileName, nodeId);
+            string request = string.Format(ImagesUrl, _fileName, nodeId, _scale);
             using (UnityWebRequest www = UnityWebRequest.Get(request))
             {
                 www.SetRequestHeader("Authorization", $"Bearer {_settings.Token}");
                 www.SendWebRequest();
-                while (!www.isDone)
+                while (!www.isDone && !www.isNetworkError)
                 {
                     FigmaNodesProgressInfo.CurrentInfo = "Getting node image info";
                     if (showProgress)

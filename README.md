@@ -56,3 +56,9 @@ There is also one thing with Fonts.
 If you got the error about Font. You should add it in FontLinks.asset scriptable object.
 
 ![Font](./ReadmeImages/step8.png)
+
+## Update 07.10.2021
+Changed position calculating for nodes. Now it doesnt use tricky operations with parents chaniging.
+Now if you choose existing object, instead of canvas, it will apply all changes to it without creating a new one.
+Also added scale option.
+Will test it and rewrite readme a little bit later.
