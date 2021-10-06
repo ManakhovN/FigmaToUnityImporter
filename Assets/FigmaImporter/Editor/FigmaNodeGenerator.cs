@@ -148,7 +148,7 @@ namespace FigmaImporter.Editor
                 t.offsetMin = offsetMin;
                 t.offsetMax = offsetMax;
                 var style = node.style;
-                tmp.fontSize = style.fontSize;
+                tmp.fontSize = style.fontSize * _importer.Scale;
                 tmp.text = node.characters;
                 var fontLinksId = AssetDatabase.FindAssets("t:FontLinks")[0];
                 FontLinks fl = AssetDatabase.LoadAssetAtPath<FontLinks>(AssetDatabase.GUIDToAssetPath(fontLinksId));
@@ -393,9 +393,10 @@ namespace FigmaImporter.Editor
             var canvas = parent.GetComponentInParent<Canvas>();
             rectTransform.pivot = Vector2.up;
             var newPosition = boundingBox.GetPosition() - offset;
+            newPosition *= _importer.Scale;
             var v = ConvertVector((RectTransform)canvas.transform, newPosition);
-            rectTransform.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, boundingBox.width);
-            rectTransform.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, boundingBox.height);
+            rectTransform.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, boundingBox.width * _importer.Scale);
+            rectTransform.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, boundingBox.height * _importer.Scale);
 
             rectTransform.position = v;
         }

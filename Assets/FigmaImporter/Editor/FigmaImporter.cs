@@ -25,7 +25,14 @@ namespace FigmaImporter.Editor
         private static List<Node> _nodes = null;
         private MultiColumnLayout _treeView;
         private string _lastClickedNode = String.Empty;
+        
+        private static string _fileName;
+        private static string _nodeId;
+        private float _scale = 1f;
+
         Dictionary<string, Texture2D> _texturesCache = new Dictionary<string, Texture2D>();
+
+        public float Scale => _scale;
 
         void OnGUI()
         {
@@ -40,6 +47,7 @@ namespace FigmaImporter.Editor
 
             _settings.ClientCode = EditorGUILayout.TextField("ClientCode", _settings.ClientCode);
             _settings.State = EditorGUILayout.TextField("State", _settings.State);
+            
             EditorUtility.SetDirty(_settings);
 
             if (GUILayout.Button("GetToken"))
@@ -53,6 +61,9 @@ namespace FigmaImporter.Editor
 
             _rootObject =
                 (GameObject) EditorGUILayout.ObjectField("Root Object", _rootObject, typeof(GameObject), true);
+            
+            _scale = EditorGUILayout.Slider("Scale", _scale, 0.01f, 4f);
+            
             var redStyle = new GUIStyle(EditorStyles.label);
 
             redStyle.normal.textColor = UnityEngine.Color.red;
@@ -178,9 +189,6 @@ namespace FigmaImporter.Editor
             _nodes = await GetNodeInfo(url);
             FigmaNodesProgressInfo.HideProgress();
         }
-
-        private static string _fileName;
-        private static string _nodeId;
 
         private string ConvertToApiUrl(string s)
         {
@@ -314,7 +322,7 @@ namespace FigmaImporter.Editor
             return count;
         }
 
-        private const string ImagesUrl = "https://api.figma.com/v1/images/{0}?ids={1}&svg_include_id=true&format=png";
+        private const string ImagesUrl = "https://api.figma.com/v1/images/{0}?ids={1}&svg_include_id=true&format=png&scale={2}";
 
         public async Task<Texture2D> GetImage(string nodeId, bool showProgress = true)
         {
@@ -324,7 +332,7 @@ namespace FigmaImporter.Editor
             }
 
             WWWForm form = new WWWForm();
-            string request = string.Format(ImagesUrl, _fileName, nodeId);
+            string request = string.Format(ImagesUrl, _fileName, nodeId, _scale);
             using (UnityWebRequest www = UnityWebRequest.Get(request))
             {
                 www.SetRequestHeader("Authorization", $"Bearer {_settings.Token}");
