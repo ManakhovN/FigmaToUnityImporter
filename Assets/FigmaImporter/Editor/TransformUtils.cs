@@ -113,5 +113,18 @@ namespace FigmaImporter.Editor
             }
             return null;
         }
+        
+        public static GameObject InstantiateChild(GameObject nodeGo, string name)
+        {
+            GameObject go = new GameObject(name);
+            go.transform.parent = nodeGo.transform;
+            go.transform.localScale = Vector3.one;
+            var rTransform = go.AddComponent<RectTransform>();
+            rTransform.position = Vector3.zero;
+            rTransform.anchorMin = Vector2.zero;
+            rTransform.anchorMax = Vector2.one;
+            rTransform.offsetMin = rTransform.offsetMax = Vector2.zero;
+            return go;
+        }
     }
 }

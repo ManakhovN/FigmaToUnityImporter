@@ -86,7 +86,7 @@ namespace FigmaImporter.Editor
                         ImageUtils.AddOverridenSprite(nodeGo, treeElement.sprite);
                         break;
                     }
-                    await RenderNodeAndApply(node, nodeGo);
+                    await ImageUtils.RenderNodeAndApply(node, nodeGo, _importer);
                     break;
 #if VECTOR_GRAHICS_IMPORTED
                 case ActionType.SvgRender:
@@ -136,45 +136,7 @@ namespace FigmaImporter.Editor
             }
         }
 
-        private async Task RenderNodeAndApply(Node node, GameObject nodeGo)
-        {
-            FigmaNodesProgressInfo.CurrentInfo = "Loading image";
-            FigmaNodesProgressInfo.ShowProgress(0f);
-            var result = await _importer.GetImage(node.id);
-            var t = nodeGo.transform as RectTransform;
-            string spriteName = $"{node.name}_{node.id.Replace(':', '_')}.png";
-            
-            Image image = null;
-            Sprite sprite = null;
-            FigmaNodesProgressInfo.CurrentInfo = "Saving rendered node";
-            FigmaNodesProgressInfo.ShowProgress(0f);
-            try
-            {
-                ImageUtils.SaveTexture(result, $"/{_importer.GetRendersFolderPath()}/{spriteName}");
-                sprite = ImageUtils.ChangeTextureToSprite($"Assets/{_importer.GetRendersFolderPath()}/{spriteName}");
-                if (Math.Abs(t.rect.width - sprite.texture.width) < 1f &&
-                    Math.Abs(t.rect.height - sprite.texture.height) < 1f)
-                {
-                    image = nodeGo.AddComponent<Image>();
-                    image.sprite = sprite;
-                    return;
-                }
-            }
-            catch (Exception e)
-            {
-                Debug.LogError(e.Message);
-            }
-
-            var child = InstantiateChild(nodeGo, "Render");
-            if (sprite != null)
-            {
-                image = child.AddComponent<Image>();
-                image.sprite = sprite;
-                t = child.transform as RectTransform;
-                t.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, sprite.texture.width);
-                t.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, sprite.texture.height);
-            }
-        }
+        
         
 
 
@@ -191,7 +153,7 @@ namespace FigmaImporter.Editor
                 var fill = node.fills[index];
                 if (index != 0)
                 {
-                    var go = InstantiateChild(nodeGo, fill.type);
+                    var go = TransformUtils.InstantiateChild(nodeGo, fill.type);
                     image = go.AddComponent<Image>();
                 }
 
@@ -217,21 +179,6 @@ namespace FigmaImporter.Editor
                     image.enabled = fill.visible != "false";
             }
         }
-
-        private static GameObject InstantiateChild(GameObject nodeGo, string name)
-        {
-            GameObject go = new GameObject(name);
-            go.transform.parent = nodeGo.transform;
-            go.transform.localScale = Vector3.one;
-            var rTransform = go.AddComponent<RectTransform>();
-            rTransform.position = Vector3.zero;
-            rTransform.anchorMin = Vector2.zero;
-            rTransform.anchorMax = Vector2.one;
-            rTransform.offsetMin = rTransform.offsetMax = Vector2.zero;
-            return go;
-        }
-
-        
 
         private static void GenerateRenderSaveFolder(string path)
         {

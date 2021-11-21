@@ -66,7 +66,7 @@ namespace FigmaImporter.Editor
             
             var redStyle = new GUIStyle(EditorStyles.label);
 
-            redStyle.normal.textColor = UnityEngine.Color.red;
+            redStyle.normal.textColor = UnityEngine.Color.yellow;
             EditorGUILayout.LabelField(
                 "Preview on the right side loaded via Figma API. It doesn't represent the final result!!!!", redStyle);
 
@@ -78,10 +78,43 @@ namespace FigmaImporter.Editor
 
             if (_nodes != null)
             {
+                DrawAdditionalButtons();
                 DrawNodeTree();
                 DrawPreview();
                 ShowExecuteButton();
             }
+        }
+
+        private void DrawAdditionalButtons()
+        {
+            EditorGUILayout.BeginHorizontal();
+            if (GUILayout.Button("To Generate"))
+                SwitchNodesToGenerate();
+            if (GUILayout.Button("To Transform"))
+                SwitchNodesToTransform();
+#if VECTOR_GRAHICS_IMPORTED
+            if (GUILayout.Button("To SVG"))
+                SwitchSVGToTransform();
+#endif
+            EditorGUILayout.EndHorizontal();
+        }
+
+        private void SwitchSVGToTransform()
+        {
+            var nodesTreeElements = _treeView.TreeView.treeModel.Data;
+            NodesAnalyzer.AnalyzeSVGMode(_nodes, nodesTreeElements);
+        }
+
+        private void SwitchNodesToTransform()
+        {
+            var nodesTreeElements = _treeView.TreeView.treeModel.Data;
+            NodesAnalyzer.AnalyzeTransformMode(_nodes, nodesTreeElements);   
+        }
+
+        private void SwitchNodesToGenerate()
+        {
+            var nodesTreeElements = _treeView.TreeView.treeModel.Data;
+            NodesAnalyzer.AnalyzeRenderMode(_nodes, nodesTreeElements);
         }
 
         private void DrawPreview()
@@ -153,7 +186,7 @@ namespace FigmaImporter.Editor
             if (justCreated)
             {
                 _treeView.TreeView.OnItemClick += ItemClicked;
-                NodesAnalyzer.Analyze(_nodes, nodesTreeElements);
+                NodesAnalyzer.AnalyzeRenderMode(_nodes, nodesTreeElements);
                 LoadAllRenders(nodesTreeElements);
             }
 
@@ -315,20 +348,6 @@ namespace FigmaImporter.Editor
             return null;
         }
 
-        private int GetNodesCount(IEnumerable<Node> nodes)
-        {
-            int count = 0;
-            if (nodes == null)
-                return 0;
-            foreach (var node in nodes)
-            {
-                count++;
-                count += GetNodesCount(node.children);
-            }
-
-            return count;
-        }
-
         private const string ImagesUrl = "https://api.figma.com/v1/images/{0}?ids={1}&svg_include_id=true&format=png&scale={2}";
 
         public async Task<Texture2D> GetImage(string nodeId, bool showProgress = true)
@@ -374,31 +393,8 @@ namespace FigmaImporter.Editor
 
             return null;
         }
-
-        private async Task<Texture2D> LoadDataByUrl(string url, bool showProgress = true)
-        {
-            using (UnityWebRequest request = UnityWebRequest.Get(url))
-            {
-                request.SendWebRequest();
-                while (request.downloadProgress < 1f)
-                {
-                    if (showProgress)
-                        FigmaNodesProgressInfo.ShowProgress(request.downloadProgress);
-                    await Task.Delay(100);
-                }
-
-                if (request.isNetworkError || request.isHttpError)
-                    return null;
-                var data = request.downloadHandler.text;
-                Texture2D t = new Texture2D(0, 0);
-                
-                //t.LoadImage(data);
-                FigmaNodesProgressInfo.HideProgress();
-                return t;
-            }
-        }
-
 #endif
+        
         private async Task<T> MakeRequest<T>(string request, bool showProgress, bool appendBearerToken = true) where T : class
         {
             using (UnityWebRequest www = UnityWebRequest.Get(request))

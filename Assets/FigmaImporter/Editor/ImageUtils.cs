@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Text;
 using System.Threading.Tasks;
 using Unity.VectorGraphics;
 using UnityEditor;
@@ -31,13 +32,31 @@ namespace FigmaImporter.Editor
             FigmaNodesProgressInfo.CurrentInfo = "Loading image";
             FigmaNodesProgressInfo.ShowProgress(0f);
             var result = await importer.GetSvgImage(node.id);
+            string svgAsString = result == null? null : Encoding.UTF8.GetString(result);
+            if (svgAsString == null || svgAsString.Contains("image/jpg") || svgAsString.Contains("image/jpeg") || svgAsString.Contains("image/png"))
+            {
+                Debug.LogError("It seems that svg contains raster image. It is not supported by Unity Vector Graphics. Trying to load raster image instead.");
+                await RenderNodeAndApply(node, nodeGo, importer);
+                return;
+            }
             string spriteName = $"{node.name}_{node.id.Replace(':', '_')}.svg";
             var destinationPath = $"/{importer.GetRendersFolderPath()}/{spriteName}";
-            SaveSvgTexture(result,destinationPath);
-            using (var stream = new StreamReader(Application.dataPath + destinationPath))
-                 SVGParser.ImportSVG(stream, ViewportOptions.DontPreserve, 0, 1, 100, 100);
-            var t = nodeGo.transform as RectTransform;
-            
+            try
+            {
+                SaveSvgTexture(result, destinationPath);
+                using (var stream = new StreamReader(Application.dataPath + destinationPath))
+                    SVGParser.ImportSVG(stream, ViewportOptions.DontPreserve, 0, 1, 100, 100);
+                var t = nodeGo.transform as RectTransform;
+            }
+            catch (Exception e)
+            {
+                Debug.LogError("It seems that svg cant be imported. Trying to load raster image instead." + e.Message);
+                if (File.Exists(destinationPath))
+                    File.Delete(destinationPath);
+                await RenderNodeAndApply(node, nodeGo, importer);
+                return;
+            }
+
             SVGImage image = null;
             Sprite sprite = null;
             FigmaNodesProgressInfo.CurrentInfo = "Saving rendered node";
@@ -47,13 +66,14 @@ namespace FigmaImporter.Editor
                 sprite = AssetDatabase.LoadAssetAtPath<Sprite>($"Assets{destinationPath}");
                 image = nodeGo.AddComponent<SVGImage>();
                 image.sprite = sprite;
+                image.preserveAspect = true;
             }
             catch (Exception e)
             {
                 Debug.LogError(e.Message);
             }
         }
-        
+
         private static void SaveSvgTexture(byte[] bytes, string path)
         {
              var filePath = Application.dataPath + path;
@@ -92,6 +112,46 @@ namespace FigmaImporter.Editor
                 nodeGo.AddComponent<RectMask2D>();
             else
                 nodeGo.AddComponent<Mask>();
+        }
+        
+        public static async Task RenderNodeAndApply(Node node, GameObject nodeGo, FigmaImporter importer)
+        {
+            FigmaNodesProgressInfo.CurrentInfo = "Loading image";
+            FigmaNodesProgressInfo.ShowProgress(0f);
+            var result = await importer.GetImage(node.id);
+            var t = nodeGo.transform as RectTransform;
+            string spriteName = $"{node.name}_{node.id.Replace(':', '_')}.png";
+            
+            Image image = null;
+            Sprite sprite = null;
+            FigmaNodesProgressInfo.CurrentInfo = "Saving rendered node";
+            FigmaNodesProgressInfo.ShowProgress(0f);
+            try
+            {
+                ImageUtils.SaveTexture(result, $"/{importer.GetRendersFolderPath()}/{spriteName}");
+                sprite = ImageUtils.ChangeTextureToSprite($"Assets/{importer.GetRendersFolderPath()}/{spriteName}");
+                if (Math.Abs(t.rect.width - sprite.texture.width) < 1f &&
+                    Math.Abs(t.rect.height - sprite.texture.height) < 1f)
+                {
+                    image = nodeGo.AddComponent<Image>();
+                    image.sprite = sprite;
+                    return;
+                }
+            }
+            catch (Exception e)
+            {
+                Debug.LogError(e.Message);
+            }
+
+            var child = TransformUtils.InstantiateChild(nodeGo, "Render");
+            if (sprite != null)
+            {
+                image = child.AddComponent<Image>();
+                image.sprite = sprite;
+                t = child.transform as RectTransform;
+                t.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, sprite.texture.width);
+                t.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, sprite.texture.height);
+            }
         }
     }
 }
