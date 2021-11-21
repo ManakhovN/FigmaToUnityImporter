@@ -66,7 +66,7 @@ namespace FigmaImporter.Editor
             
             var redStyle = new GUIStyle(EditorStyles.label);
 
-            redStyle.normal.textColor = UnityEngine.Color.red;
+            redStyle.normal.textColor = UnityEngine.Color.yellow;
             EditorGUILayout.LabelField(
                 "Preview on the right side loaded via Figma API. It doesn't represent the final result!!!!", redStyle);
 
@@ -78,10 +78,43 @@ namespace FigmaImporter.Editor
 
             if (_nodes != null)
             {
+                DrawAdditionalButtons();
                 DrawNodeTree();
                 DrawPreview();
                 ShowExecuteButton();
             }
+        }
+
+        private void DrawAdditionalButtons()
+        {
+            EditorGUILayout.BeginHorizontal();
+            if (GUILayout.Button("To Generate"))
+                SwitchNodesToGenerate();
+            if (GUILayout.Button("To Transform"))
+                SwitchNodesToTransform();
+#if VECTOR_GRAHICS_IMPORTED
+            if (GUILayout.Button("To SVG"))
+                SwitchSVGToTransform();
+#endif
+            EditorGUILayout.EndHorizontal();
+        }
+
+        private void SwitchSVGToTransform()
+        {
+            var nodesTreeElements = _treeView.TreeView.treeModel.Data;
+            NodesAnalyzer.AnalyzeSVGMode(_nodes, nodesTreeElements);
+        }
+
+        private void SwitchNodesToTransform()
+        {
+            var nodesTreeElements = _treeView.TreeView.treeModel.Data;
+            NodesAnalyzer.AnalyzeTransformMode(_nodes, nodesTreeElements);   
+        }
+
+        private void SwitchNodesToGenerate()
+        {
+            var nodesTreeElements = _treeView.TreeView.treeModel.Data;
+            NodesAnalyzer.AnalyzeRenderMode(_nodes, nodesTreeElements);
         }
 
         private void DrawPreview()
@@ -94,25 +127,32 @@ namespace FigmaImporter.Editor
             _texturesCache.TryGetValue(_lastClickedNode, out var lastLoadedPreview);
             if (lastLoadedPreview != null)
             {
-                if (lastLoadedPreview.width < widthMax && lastLoadedPreview.height < heightMax)
-                {
-                    width = lastLoadedPreview.width;
-                    height = lastLoadedPreview.height;
-                }
-                else
-                {
-                    height = widthMax * lastLoadedPreview.height / lastLoadedPreview.width;
-                    if (height > heightMax)
-                    {
-                        height = heightMax;
-                        width = heightMax * lastLoadedPreview.width / lastLoadedPreview.height;
-                    }
-                }
+                CalculatePreviewSize(lastLoadedPreview, widthMax, heightMax, out width, out height);
             }
 
             var previewRect = new Rect(position.width / 2f, lastRect.yMax + 20, width, height);
             if (lastLoadedPreview != null)
                 GUI.DrawTexture(previewRect, lastLoadedPreview);
+        }
+
+        private void CalculatePreviewSize(Texture2D lastLoadedPreview, float widthMax, float heightMax, out float width,
+            out float height)
+        {
+            if (lastLoadedPreview.width < widthMax && lastLoadedPreview.height < heightMax)
+            {
+                width = lastLoadedPreview.width;
+                height = lastLoadedPreview.height;
+            }
+            else
+            {
+                width = widthMax;
+                height = widthMax * lastLoadedPreview.height / lastLoadedPreview.width;
+                if (height > heightMax)
+                {
+                    height = heightMax;
+                    width = heightMax * lastLoadedPreview.width / lastLoadedPreview.height;
+                }
+            }
         }
 
         private void OnDestroy()
@@ -146,7 +186,7 @@ namespace FigmaImporter.Editor
             if (justCreated)
             {
                 _treeView.TreeView.OnItemClick += ItemClicked;
-                NodesAnalyzer.Analyze(_nodes, nodesTreeElements);
+                NodesAnalyzer.AnalyzeRenderMode(_nodes, nodesTreeElements);
                 LoadAllRenders(nodesTreeElements);
             }
 
@@ -308,20 +348,6 @@ namespace FigmaImporter.Editor
             return null;
         }
 
-        private int GetNodesCount(IEnumerable<Node> nodes)
-        {
-            int count = 0;
-            if (nodes == null)
-                return 0;
-            foreach (var node in nodes)
-            {
-                count++;
-                count += GetNodesCount(node.children);
-            }
-
-            return count;
-        }
-
         private const string ImagesUrl = "https://api.figma.com/v1/images/{0}?ids={1}&svg_include_id=true&format=png&scale={2}";
 
         public async Task<Texture2D> GetImage(string nodeId, bool showProgress = true)
@@ -333,9 +359,51 @@ namespace FigmaImporter.Editor
 
             WWWForm form = new WWWForm();
             string request = string.Format(ImagesUrl, _fileName, nodeId, _scale);
+            var requestResult = await MakeRequest<string>(request, showProgress);
+            var substrs = requestResult.Split('"');
+            FigmaNodesProgressInfo.CurrentInfo = "Loading node texture";
+            foreach (var s in substrs)
+            {
+                if (s.Contains("http"))
+                {
+                    var texture = await LoadTextureByUrl(s, showProgress);
+                    _texturesCache[nodeId] = texture;
+                    return texture;
+                }
+            }
+
+            return null;
+        }
+
+#if VECTOR_GRAHICS_IMPORTED
+        private const string SvgImagesUrl = "https://api.figma.com/v1/images/{0}?ids={1}&format=svg";
+        public async Task<byte[]> GetSvgImage(string nodeId, bool showProgress = true)
+        {
+
+            WWWForm form = new WWWForm();
+            string request = string.Format(SvgImagesUrl, _fileName, nodeId);
+            var svgInfoRequest = await MakeRequest<string>(request, showProgress);
+            var substrs = svgInfoRequest.Split('"');
+            foreach (var str in substrs)
+                if (str.Contains("https"))
+                {
+                    var svgData = await MakeRequest<byte[]>(str, showProgress, false);
+                    return svgData;
+                }
+
+            return null;
+        }
+#endif
+        
+        private async Task<T> MakeRequest<T>(string request, bool showProgress, bool appendBearerToken = true) where T : class
+        {
             using (UnityWebRequest www = UnityWebRequest.Get(request))
             {
-                www.SetRequestHeader("Authorization", $"Bearer {_settings.Token}");
+                if (appendBearerToken)
+                {
+                    www.SetRequestHeader("Authorization", $"Bearer {_settings.Token}");
+                }
+
                 www.SendWebRequest();
                 while (!www.isDone && !www.isNetworkError)
                 {
@@ -350,25 +418,15 @@ namespace FigmaImporter.Editor
                 if (www.isNetworkError)
                 {
                     Debug.Log(www.error);
+                    return null;
                 }
                 else
                 {
-                    var result = www.downloadHandler.text;
-                    var substrs = result.Split('"');
-                    FigmaNodesProgressInfo.CurrentInfo = "Loading node texture";
-                    foreach (var s in substrs)
-                    {
-                        if (s.Contains("http"))
-                        {
-                            var texture = await LoadTextureByUrl(s, showProgress);
-                            _texturesCache[nodeId] = texture;
-                            return texture;
-                        }
-                    }
+                    if (typeof(T) == typeof(string))
+                        return www.downloadHandler.text as T;
+                    return www.downloadHandler.data as T;
                 }
             }
-
-            return null;
         }
 
         public string GetRendersFolderPath()

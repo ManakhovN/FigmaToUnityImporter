@@ -24,6 +24,12 @@ namespace FigmaImporter.Editor.EditorTree.TreeData
 
 	public enum ActionType
 	{
-		None, Render, Generate, Transform
+		None,
+		Render,
+		Generate,
+		Transform,
+#if VECTOR_GRAHICS_IMPORTED
+		SvgRender
+#endif
 	}
 }
