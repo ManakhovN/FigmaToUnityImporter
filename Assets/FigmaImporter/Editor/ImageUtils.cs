@@ -2,7 +2,6 @@ using System;
 using System.IO;
 using System.Text;
 using System.Threading.Tasks;
-using Unity.VectorGraphics;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.UI;
@@ -128,7 +127,7 @@ namespace FigmaImporter.Editor
             FigmaNodesProgressInfo.ShowProgress(0f);
             try
             {
-                ImageUtils.SaveTexture(result, $"/{importer.GetRendersFolderPath()}/{spriteName}");
+                SaveTexture(result, $"/{importer.GetRendersFolderPath()}/{spriteName}");
                 sprite = ImageUtils.ChangeTextureToSprite($"Assets/{importer.GetRendersFolderPath()}/{spriteName}");
                 if (Math.Abs(t.rect.width - sprite.texture.width) < 1f &&
                     Math.Abs(t.rect.height - sprite.texture.height) < 1f)
