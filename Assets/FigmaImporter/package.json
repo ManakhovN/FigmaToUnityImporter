@@ -9,8 +9,5 @@
   ],
   "author": {
     "name": "ManakhovN"
-  },
-  "dependencies": {
-    "com.unity.textmeshpro": "2.1.4"
   }
 }
