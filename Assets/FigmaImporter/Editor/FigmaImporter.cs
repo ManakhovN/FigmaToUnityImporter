@@ -243,7 +243,7 @@ namespace FigmaImporter.Editor
 
             _nodeId = substrings[length - 1]
                 .Split(new string[] {"?node-id="}, StringSplitOptions.RemoveEmptyEntries)[1];
-            return $"https://api.figma.com/v1/files/{_fileName}/nodes?ids={_nodeId}";
+            return $"https://api.figma.com/v1/files/{_fileName}/nodes?ids={_nodeId.Replace("-",":")}";
         }
 
         private const string ApplicationKey = "msRpeIqxmc8a7a6U0Z4Jg6";
