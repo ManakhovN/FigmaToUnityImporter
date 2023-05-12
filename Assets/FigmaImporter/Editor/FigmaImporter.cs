@@ -241,8 +241,7 @@ namespace FigmaImporter.Editor
                 return $"https://api.figma.com/v1/files/{_fileName}";
             }
 
-            _nodeId = substrings[length - 1]
-                .Split(new string[] {"?node-id="}, StringSplitOptions.RemoveEmptyEntries)[1];
+            _nodeId = substrings[length - 1].Substring(substrings[length - 1].IndexOf("node-id=") + "node-id=".Length);
             return $"https://api.figma.com/v1/files/{_fileName}/nodes?ids={_nodeId.Replace("-",":")}";
         }
 
