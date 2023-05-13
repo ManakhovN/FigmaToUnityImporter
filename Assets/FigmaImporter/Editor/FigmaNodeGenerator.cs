@@ -142,9 +142,7 @@ namespace FigmaImporter.Editor
 
         private void AddFills(Node node, GameObject nodeGo)
         {
-            var gradientGeneratorId = AssetDatabase.FindAssets("t:GradientsGenerator")[0];
-            GradientsGenerator gg =
-                AssetDatabase.LoadAssetAtPath<GradientsGenerator>(AssetDatabase.GUIDToAssetPath(gradientGeneratorId));
+            var gg = GetGradientsGenerator();
             Image image = nodeGo.GetComponent<Image>();
             if (node.fills.Length > 0f && image == null && nodeGo.GetComponent<Graphic>()==null)
                 image = nodeGo.AddComponent<Image>();
@@ -178,6 +176,33 @@ namespace FigmaImporter.Editor
                 if (image != null) 
                     image.enabled = fill.visible != "false";
             }
+        }
+
+        private static GradientsGenerator GetGradientsGenerator()
+        {
+            var foundAssets = AssetDatabase.FindAssets("t:GradientsGenerator");
+            GradientsGenerator gg = null;
+            if (foundAssets.Length == 0)
+            {
+                gg = ScriptableObject.CreateInstance<GradientsGenerator>();
+                if (AssetDatabase.IsValidFolder("Assets/FigmaImporter/") == false)
+                {
+                    AssetDatabase.CreateFolder("Assets", "FigmaImporter");
+                    if (AssetDatabase.IsValidFolder("Assets/FigmaImporter/Editor") == false)
+                    {
+                        AssetDatabase.CreateFolder("Assets/FigmaImporter", "Editor");
+                    }
+                }
+                AssetDatabase.CreateAsset(gg, "Assets/FigmaImporter/Editor/GradientsGenerator.asset");
+                AssetDatabase.SaveAssets();
+            }
+            else
+            {
+                var gradientGeneratorId = foundAssets[0];
+                gg = AssetDatabase.LoadAssetAtPath<GradientsGenerator>(
+                        AssetDatabase.GUIDToAssetPath(gradientGeneratorId));
+            }
+            return gg;
         }
 
         private static void GenerateRenderSaveFolder(string path)
