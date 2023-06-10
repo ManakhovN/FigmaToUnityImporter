@@ -146,6 +146,9 @@ namespace FigmaImporter.Editor
             Image image = nodeGo.GetComponent<Image>();
             if (node.fills.Length > 0f && image == null && nodeGo.GetComponent<Graphic>()==null)
                 image = nodeGo.AddComponent<Image>();
+            
+            var tmp = nodeGo.GetComponent<TextMeshProUGUI>();
+            
             for (var index = 0; index < node.fills.Length; index++)
             {
                 var fill = node.fills[index];
@@ -158,11 +161,19 @@ namespace FigmaImporter.Editor
                 switch (fill.type)
                 {
                     case "SOLID":
-                        var tmp = nodeGo.GetComponent<TextMeshProUGUI>();
                         if (tmp != null)
                             tmp.color = fill.color.ToColor();
                         else
                             image.color = fill.color.ToColor();
+                        break;
+                    case "GRADIENT_LINEAR" when tmp != null:
+                        var gradient = fill.gradientStops;
+                        tmp.enableVertexGradient = true;
+                        var firstColor = gradient.Length <= 0 ? UnityEngine.Color.white : ColorUtils.ConvertToUnityColor(gradient[0].color);
+                        var secondColor = gradient.Length <= 1 ? firstColor : ColorUtils.ConvertToUnityColor(gradient[1].color);
+                        var thirdColor = gradient.Length <= 2 ? UnityEngine.Color.white : ColorUtils.ConvertToUnityColor(gradient[2].color);
+                        var fourthColor = gradient.Length <= 3 ? thirdColor : ColorUtils.ConvertToUnityColor(gradient[3].color); 
+                        tmp.colorGradient = new VertexGradient(firstColor, secondColor, thirdColor, fourthColor);
                         break;
                     default:
                         var tex = gg.GetTexture(fill, node.absoluteBoundingBox.GetSize(), 256);
