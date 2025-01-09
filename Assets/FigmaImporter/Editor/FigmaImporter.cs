@@ -16,7 +16,7 @@ namespace FigmaImporter.Editor
         [MenuItem("Window/FigmaImporter")]
         static void Init()
         {
-            FigmaImporter window = (FigmaImporter) EditorWindow.GetWindow(typeof(FigmaImporter));
+            FigmaImporter window = (FigmaImporter)EditorWindow.GetWindow(typeof(FigmaImporter));
             window.Show();
         }
 
@@ -25,7 +25,7 @@ namespace FigmaImporter.Editor
         private static List<Node> _nodes = null;
         private MultiColumnLayout _treeView;
         private string _lastClickedNode = String.Empty;
-        
+
         private static string _fileName;
         private static string _nodeId;
         private float _scale = 1f;
@@ -47,7 +47,7 @@ namespace FigmaImporter.Editor
 
             _settings.ClientCode = EditorGUILayout.TextField("ClientCode", _settings.ClientCode);
             _settings.State = EditorGUILayout.TextField("State", _settings.State);
-            
+
             EditorUtility.SetDirty(_settings);
 
             if (GUILayout.Button("GetToken"))
@@ -60,10 +60,10 @@ namespace FigmaImporter.Editor
             _settings.RendersPath = EditorGUILayout.TextField("RendersPath", _settings.RendersPath);
 
             _rootObject =
-                (GameObject) EditorGUILayout.ObjectField("Root Object", _rootObject, typeof(GameObject), true);
-            
+                (GameObject)EditorGUILayout.ObjectField("Root Object", _rootObject, typeof(GameObject), true);
+
             _scale = EditorGUILayout.Slider("Scale", _scale, 0.01f, 4f);
-            
+
             var redStyle = new GUIStyle(EditorStyles.label);
 
             redStyle.normal.textColor = UnityEngine.Color.yellow;
@@ -108,7 +108,7 @@ namespace FigmaImporter.Editor
         private void SwitchNodesToTransform()
         {
             var nodesTreeElements = _treeView.TreeView.treeModel.Data;
-            NodesAnalyzer.AnalyzeTransformMode(_nodes, nodesTreeElements);   
+            NodesAnalyzer.AnalyzeTransformMode(_nodes, nodesTreeElements);
         }
 
         private void SwitchNodesToGenerate()
@@ -209,6 +209,7 @@ namespace FigmaImporter.Editor
             {
                 await GetImage(obj, false);
             }
+
             Repaint();
         }
 
@@ -242,7 +243,7 @@ namespace FigmaImporter.Editor
             }
 
             _nodeId = substrings[length - 1].Substring(substrings[length - 1].IndexOf("node-id=") + "node-id=".Length);
-            return $"https://api.figma.com/v1/files/{_fileName}/nodes?ids={_nodeId.Replace("-",":")}";
+            return $"https://api.figma.com/v1/files/{_fileName}/nodes?ids={_nodeId.Replace("-", ":")}";
         }
 
         private const string ApplicationKey = "msRpeIqxmc8a7a6U0Z4Jg6";
@@ -260,15 +261,21 @@ namespace FigmaImporter.Editor
 
         private const string ClientSecret = "VlyvMwuA4aVOm4dxcJgOvxbdWsmOJE";
 
-        private const string AuthUrl =
-            "https://www.figma.com/api/oauth/token?client_id={0}&client_secret={1}&redirect_uri={2}&code={3}&grant_type=authorization_code";
+        private const string AuthUrl = "https://api.figma.com/v1/oauth/token";
 
         private string GetOAuthToken()
         {
             WWWForm form = new WWWForm();
-            string request = String.Format(AuthUrl, ApplicationKey, ClientSecret, RedirectURI, _settings.ClientCode);
-            using (UnityWebRequest www = UnityWebRequest.Post(request, form))
+            
+            form.AddField("redirect_uri", RedirectURI);
+            form.AddField("code", _settings.ClientCode);
+            form.AddField("grant_type", "authorization_code");
+            using (UnityWebRequest www = UnityWebRequest.Post(AuthUrl, form))
             {
+                var encodedClientData =
+                    Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes($"{ApplicationKey}:{ClientSecret}"));
+                www.SetRequestHeader("Authorization", $"Basic ${encodedClientData}");
+                www.SetRequestHeader("Content-Type", "application/x-www-form-urlencoded");
                 www.SendWebRequest();
 
                 while (!www.isDone)
@@ -294,7 +301,8 @@ namespace FigmaImporter.Editor
         {
             if (_rootObject == null)
             {
-                Debug.LogError($"[FigmaImporter] Root object is null. Please add reference to a Canvas or previous version of the object");
+                Debug.LogError(
+                    $"[FigmaImporter] Root object is null. Please add reference to a Canvas or previous version of the object");
                 return;
             }
 
@@ -347,7 +355,8 @@ namespace FigmaImporter.Editor
             return null;
         }
 
-        private const string ImagesUrl = "https://api.figma.com/v1/images/{0}?ids={1}&svg_include_id=true&format=png&scale={2}";
+        private const string ImagesUrl =
+            "https://api.figma.com/v1/images/{0}?ids={1}&svg_include_id=true&format=png&scale={2}";
 
         public async Task<Texture2D> GetImage(string nodeId, bool showProgress = true)
         {
@@ -378,7 +387,6 @@ namespace FigmaImporter.Editor
         private const string SvgImagesUrl = "https://api.figma.com/v1/images/{0}?ids={1}&format=svg";
         public async Task<byte[]> GetSvgImage(string nodeId, bool showProgress = true)
         {
-
             WWWForm form = new WWWForm();
             string request = string.Format(SvgImagesUrl, _fileName, nodeId);
             var svgInfoRequest = await MakeRequest<string>(request, showProgress);
@@ -393,8 +401,9 @@ namespace FigmaImporter.Editor
             return null;
         }
 #endif
-        
-        private async Task<T> MakeRequest<T>(string request, bool showProgress, bool appendBearerToken = true) where T : class
+
+        private async Task<T> MakeRequest<T>(string request, bool showProgress, bool appendBearerToken = true)
+            where T : class
         {
             using (UnityWebRequest www = UnityWebRequest.Get(request))
             {

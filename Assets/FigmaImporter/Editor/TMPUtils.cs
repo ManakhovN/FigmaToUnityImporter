@@ -48,17 +48,21 @@ namespace FigmaImporter.Editor
         {
             tmp.fontSize = style.fontSize * scale;
             var fontLinksId = AssetDatabase.FindAssets("t:FontLinks")[0];
-            FontLinks fl = AssetDatabase.LoadAssetAtPath<FontLinks>(AssetDatabase.GUIDToAssetPath(fontLinksId));
-
+            FontLinks fontLinksAsset = AssetDatabase.LoadAssetAtPath<FontLinks>(AssetDatabase.GUIDToAssetPath(fontLinksId));
+            if (fontLinksAsset == null)
+            {
+                Debug.LogError("[FigmaImporter] Couldn't find FontLinks.asset, please create one. Using default font.");
+                return;
+            }
             var fontName = string.IsNullOrEmpty(style.fontPostScriptName)
                 ? style.fontFamily
                 : style.fontPostScriptName;
-            var font = fl.Get(fontName);
+            var font = fontLinksAsset.Get(fontName);
             if (font == null)
             {
-                Debug.LogError(
+                Debug.LogWarning(
                     $"[FigmaImporter] Couldn't find font named {fontName}, please link it in FontLinks.asset");
-                fl.AddName(fontName);
+                fontLinksAsset.AddName(fontName);
             }
             else
                 tmp.font = font;

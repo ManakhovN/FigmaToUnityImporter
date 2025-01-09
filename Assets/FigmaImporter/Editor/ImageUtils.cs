@@ -107,10 +107,21 @@ namespace FigmaImporter.Editor
         {
             if (!node.clipsContent)
                 return;
+
             if (node.fills.Length == 0)
-                nodeGo.AddComponent<RectMask2D>();
+            {
+                if (!nodeGo.TryGetComponent<RectMask2D>(out _))
+                {
+                    nodeGo.AddComponent<RectMask2D>();
+                }
+            }
             else
-                nodeGo.AddComponent<Mask>();
+            {
+                if (!nodeGo.TryGetComponent<Mask>(out _))
+                {
+                    nodeGo.AddComponent<Mask>();   
+                }
+            }
         }
         
         public static async Task RenderNodeAndApply(Node node, GameObject nodeGo, FigmaImporter importer)
@@ -118,9 +129,12 @@ namespace FigmaImporter.Editor
             FigmaNodesProgressInfo.CurrentInfo = "Loading image";
             FigmaNodesProgressInfo.ShowProgress(0f);
             var result = await importer.GetImage(node.id);
+            if (result == null)
+            {
+                return;
+            }
             var t = nodeGo.transform as RectTransform;
             string spriteName = $"{node.name}_{node.id.Replace(':', '_')}.png";
-            
             Image image = null;
             Sprite sprite = null;
             FigmaNodesProgressInfo.CurrentInfo = "Saving rendered node";
@@ -132,7 +146,11 @@ namespace FigmaImporter.Editor
                 if (Math.Abs(t.rect.width - sprite.texture.width) < 1f &&
                     Math.Abs(t.rect.height - sprite.texture.height) < 1f)
                 {
-                    image = nodeGo.AddComponent<Image>();
+                    if (!nodeGo.TryGetComponent(out image))
+                    {
+                        image = nodeGo.AddComponent<Image>();
+                    }
+
                     image.sprite = sprite;
                     return;
                 }
@@ -145,7 +163,11 @@ namespace FigmaImporter.Editor
             var child = TransformUtils.InstantiateChild(nodeGo, "Render");
             if (sprite != null)
             {
-                image = child.AddComponent<Image>();
+                if (!child.TryGetComponent(out image))
+                {
+                    image = child.AddComponent<Image>();
+                }
+
                 image.sprite = sprite;
                 t = child.transform as RectTransform;
                 t.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, sprite.texture.width);
