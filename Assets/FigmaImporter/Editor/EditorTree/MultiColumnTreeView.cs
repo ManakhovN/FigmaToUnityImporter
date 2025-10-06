@@ -106,7 +106,7 @@ namespace FigmaImporter.Editor.EditorTree
 
         protected override void RowGUI(RowGUIArgs args)
         {
-            var item = (TreeViewItem<NodeTreeElement>) args.item;
+            var item = (TreeData.TreeViewItem<NodeTreeElement>) args.item;
 
             for (int i = 0; i < args.GetNumVisibleColumns(); ++i)
             {
@@ -114,7 +114,7 @@ namespace FigmaImporter.Editor.EditorTree
             }
         }
 
-        void CellGUI(Rect cellRect, TreeViewItem<NodeTreeElement> item, MyColumns column, ref RowGUIArgs args)
+        void CellGUI(Rect cellRect, TreeData.TreeViewItem<NodeTreeElement> item, MyColumns column, ref RowGUIArgs args)
         {
             // Center cell rect vertically (makes it easier to place controls, icons etc in the cells)
             CenterRectUsingSingleLineHeight(ref cellRect);
