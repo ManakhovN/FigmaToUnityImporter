@@ -250,7 +250,7 @@ namespace FigmaImporter.Editor
         private const string RedirectURI = "https://manakhovn.github.io/figmaImporter";
 
         private const string OAuthUrl =
-            "https://www.figma.com/oauth?client_id={0}&redirect_uri={1}&scope=file_read&state={2}&response_type=code";
+            "https://www.figma.com/oauth?client_id={0}&redirect_uri={1}&scope=file_content:read&state={2}&response_type=code";
 
         public void OpenOauthUrl()
         {
